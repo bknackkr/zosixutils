@@ -20,7 +20,7 @@ pub const commands = struct {
     pub const cut = @import("commands/cut.zig");
     pub const dirname = @import("commands/dirname.zig");
     pub const echo = @import("commands/echo.zig");
-    pub const false_cmd = @import("commands/false.zig");
+    pub const @"false" = @import("commands/false.zig");
     pub const grep = @import("commands/grep.zig");
     pub const ln = @import("commands/ln.zig");
     pub const logname = @import("commands/logname.zig");
@@ -110,7 +110,7 @@ pub const applets = [_]Applet{
     },
     .{
         .name = "false",
-        .run = commands.false_cmd.run,
+        .run = commands.false.run,
         .description = "return false value",
     },
     .{
@@ -190,7 +190,7 @@ pub const applets = [_]Applet{
     },
     .{
         .name = "true",
-        .run = commands.@"true".run,
+        .run = commands.true.run,
         .description = "return true value",
     },
     .{
@@ -361,4 +361,3 @@ test {
     std.testing.refAllDecls(common);
     std.testing.refAllDecls(commands);
 }
-
