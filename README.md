@@ -1,4 +1,4 @@
-# <img src="img/ziggybox_ico_64px.png" height="32" alt="ziggybox Logo"> ziggybox
+# <img src="img/ziggybox_ico_64px.png" height="32" alt="ziggybox Logo"> ZOSIXutils
 A Zig reimplementation of POSIX shell commands, inspired by Busy/Toybox
 
 ## License
@@ -18,7 +18,7 @@ dual licensed as above, without any additional terms or conditions.
 
 ## Building
 
-ziggybox is written in Zig 0.16.0. To build, you need to install it. You can download it from https://ziglang.org/download/ or install it via your system's package manager:
+ZOSIXutils is written in Zig 0.16.0. To build, you need to install it. You can download it from https://ziglang.org/download/ or install it via your system's package manager:
 
 ```bash
 # Arch Linux
