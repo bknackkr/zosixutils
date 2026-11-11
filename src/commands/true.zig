@@ -9,7 +9,7 @@
 const std = @import("std");
 const common_error = @import("../common/error.zig");
 
-/// Entry point matching the ziggybox command interface standard:
+/// Entry point matching the zosixutils command interface standard:
 /// `pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8`
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
     _ = allocator;

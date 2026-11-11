@@ -1,9 +1,9 @@
-//! ziggybox - auditable, POSIX-compliant multicall binary
+//! zosixutils - auditable, POSIX-compliant multicall binary
 //!
 //! Entry point and multicall router:
 //! 1. Identify the invocation name by stripping directory paths from argv[0].
-//! 2. If argv[0] matches ziggybox (or root binary name), argv[1] determines the command.
-//! 3. If symlinked/hardlinked directly as a command (e.g. /bin/cat -> /bin/ziggybox),
+//! 2. If argv[0] matches zosixutils (or root binary name), argv[1] determines the command.
+//! 3. If symlinked/hardlinked directly as a command (e.g. /bin/cat -> /bin/zosixutils),
 //!    dispatch immediately to that command's run function.
 //! 4. If no command matches, display an auditable list of built-in applets and exit with status 1.
 
@@ -56,7 +56,7 @@ pub const Applet = struct {
     description: []const u8,
 };
 
-/// Registry of all currently implemented applets in ziggybox.
+/// Registry of all currently implemented applets in zosixutils.
 pub const applets = [_]Applet{
     .{
         .name = "awk",
@@ -233,9 +233,9 @@ pub fn printUsage(io: std.Io, is_error: bool) void {
     const writer = &fw.interface;
 
     _ = writer.writeAll(
-        \\ziggybox - POSIX multicall binary
+        \\zosixutils - POSIX multicall binary
         \\
-        \\Usage: ziggybox <applet> [arguments...]
+        \\Usage: zosixutils <applet> [arguments...]
         \\   or: <applet> [arguments...] (when symlinked/hardlinked)
         \\
         \\Currently defined applets:
@@ -261,7 +261,7 @@ pub fn printUnknownApplet(io: std.Io, applet_name: []const u8) void {
     var fw = stderr.writerStreaming(io, &buf);
     const writer = &fw.interface;
 
-    _ = writer.print("ziggybox: unknown applet '{s}'\n\n", .{applet_name}) catch {};
+    _ = writer.print("zosixutils: unknown applet '{s}'\n\n", .{applet_name}) catch {};
     _ = fw.flush() catch {};
     printUsage(io, true);
 }
@@ -271,7 +271,7 @@ pub fn main(init: std.process.Init) u8 {
     const allocator = init.arena.allocator();
 
     const all_args = init.minimal.args.toSlice(allocator) catch |err| {
-        @import("common/error.zig").report("ziggybox", null, err);
+        @import("common/error.zig").report("zosixutils", null, err);
         return 1;
     };
 
@@ -282,7 +282,7 @@ pub fn main(init: std.process.Init) u8 {
 
     const invocation_name = getBaseName(all_args[0]);
 
-    if (std.mem.eql(u8, invocation_name, "ziggybox")) {
+    if (std.mem.eql(u8, invocation_name, "zosixutils")) {
         // Multicall router mode
         if (all_args.len < 2) {
             printUsage(io, true);
@@ -320,8 +320,8 @@ test "getBaseName extraction" {
     try std.testing.expectEqualStrings("echo", getBaseName("echo"));
     try std.testing.expectEqualStrings("echo", getBaseName("/bin/echo"));
     try std.testing.expectEqualStrings("echo", getBaseName("/usr/bin/echo"));
-    try std.testing.expectEqualStrings("ziggybox", getBaseName("C:\\bin\\ziggybox.exe"));
-    try std.testing.expectEqualStrings("ziggybox", getBaseName("ziggybox.EXE"));
+    try std.testing.expectEqualStrings("zosixutils", getBaseName("C:\\bin\\zosixutils.exe"));
+    try std.testing.expectEqualStrings("zosixutils", getBaseName("zosixutils.EXE"));
     try std.testing.expectEqualStrings("false", getBaseName("false.exe"));
 }
 

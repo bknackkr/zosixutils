@@ -201,30 +201,30 @@ test "nice: invalid increment returns failure" {
 
 test "nice: non-existent utility returns 127" {
     const allocator = std.testing.allocator;
-    const res = run(allocator, &.{"nonexistent_binary_ziggybox_xyz_12345"});
+    const res = run(allocator, &.{"nonexistent_binary_zosixutils_xyz_12345"});
     try std.testing.expectEqual(common_error.EXIT_NOT_FOUND, res);
 }
 
 test "nice: executes utility successfully" {
     const allocator = std.testing.allocator;
-    const res = run(allocator, &.{ "echo", "ziggybox_nice_test" });
+    const res = run(allocator, &.{ "echo", "zosixutils_nice_test" });
     try std.testing.expectEqual(common_error.EXIT_SUCCESS, res);
 }
 
 test "nice: executes with -n increment" {
     const allocator = std.testing.allocator;
-    const res = run(allocator, &.{ "-n", "5", "echo", "ziggybox_nice_test" });
+    const res = run(allocator, &.{ "-n", "5", "echo", "zosixutils_nice_test" });
     try std.testing.expectEqual(common_error.EXIT_SUCCESS, res);
 }
 
 test "nice: executes with attached -n increment" {
     const allocator = std.testing.allocator;
-    const res = run(allocator, &.{ "-n5", "echo", "ziggybox_nice_test" });
+    const res = run(allocator, &.{ "-n5", "echo", "zosixutils_nice_test" });
     try std.testing.expectEqual(common_error.EXIT_SUCCESS, res);
 }
 
 test "nice: executes with historical -increment syntax" {
     const allocator = std.testing.allocator;
-    const res = run(allocator, &.{ "-5", "echo", "ziggybox_nice_test" });
+    const res = run(allocator, &.{ "-5", "echo", "zosixutils_nice_test" });
     try std.testing.expectEqual(common_error.EXIT_SUCCESS, res);
 }

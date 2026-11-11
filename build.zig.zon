@@ -1,5 +1,5 @@
 .{
-    .name = .ziggybox,
+    .name = .zosixutils,
     .version = "0.1.0",
     .fingerprint = 0x99a0b186537ff1e7,
     .minimum_zig_version = "0.16.0",

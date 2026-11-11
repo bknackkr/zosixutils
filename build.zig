@@ -6,7 +6,7 @@ pub fn build(b: *std.Build) void {
 
     // Main multicall executable
     const exe = b.addExecutable(.{
-        .name = "ziggybox",
+        .name = "zosixutils",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-    const run_step = b.step("run", "Run ziggybox");
+    const run_step = b.step("run", "Run zosixutils");
     run_step.dependOn(&run_cmd.step);
 
     // Tests step

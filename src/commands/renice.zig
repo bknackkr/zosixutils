@@ -236,7 +236,7 @@ test "renice: non-existent process target returns failure" {
 
 test "renice: unknown user returns failure" {
     const allocator = std.testing.allocator;
-    const res = run(allocator, &.{ "-n", "5", "-u", "nonexistent_user_ziggybox_xyz" });
+    const res = run(allocator, &.{ "-n", "5", "-u", "nonexistent_user_zosixutils_xyz" });
     try std.testing.expectEqual(common_error.EXIT_FAILURE, res);
 }
 

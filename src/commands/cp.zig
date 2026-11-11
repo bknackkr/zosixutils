@@ -520,7 +520,7 @@ test "cp: single file copy" {
     {
         const f = try std.Io.Dir.cwd().createFile(io, src_file, .{});
         defer f.close(io);
-        try f.writePositionalAll(io, "Hello, Ziggybox!", 0);
+        try f.writePositionalAll(io, "Hello, zosixutils!", 0);
     }
 
     // Run cp
@@ -532,7 +532,7 @@ test "cp: single file copy" {
     const f = try std.Io.Dir.cwd().openFile(io, dst_file, .{ .mode = .read_only });
     defer f.close(io);
     const n = try f.readPositional(io, &.{&buf}, 0);
-    try std.testing.expectEqualStrings("Hello, Ziggybox!", buf[0..n]);
+    try std.testing.expectEqualStrings("Hello, zosixutils!", buf[0..n]);
 }
 
 test "cp: copy into existing directory" {
