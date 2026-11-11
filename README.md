@@ -1,4 +1,4 @@
-# <img src="img/ziggybox_ico_64px.png" height="32" alt="ziggybox Logo"> ZOSIXutils
+# <img src="img/ziggybox_ico_64px.png" height="32" alt="ZOSIXutils Logo"> ZOSIXutils (/ˈsɒz.ɪks/)
 A Zig reimplementation of POSIX shell commands, inspired by Busy/Toybox
 
 ## License
