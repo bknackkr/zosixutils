@@ -1,6 +1,6 @@
 # ZOSIXutils (/ˈsɒz.ɪks/)
 ### The Zig Operating System Interface Utilities
-A Zig reimplementation of POSIX shell commands, inspired by Busy/Toybox
+A Zig reimplementation of POSIX shell utilities, inspired by Busy/Toybox
 
 ## License
 
