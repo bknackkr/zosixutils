@@ -12,11 +12,11 @@ const common_error = @import("../common/error.zig");
 /// Entry point matching the zosixutils command interface standard:
 /// `pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8`
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
-    _ = allocator;
-    _ = args;
-    return common_error.EXIT_FAILURE;
+	_ = allocator;
+	_ = args;
+	return common_error.EXIT_FAILURE;
 }
 
 pub fn main() u8 {
-    return common_error.EXIT_FAILURE;
+	return common_error.EXIT_FAILURE;
 }
