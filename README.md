@@ -19,7 +19,7 @@ dual licensed as above, without any additional terms or conditions.
 
 ## Building
 
-ZOSIXutils is written in Zig 0.16.0. To build, you need to install it. You can download it from https://ziglang.org/download/ or install it via your system's package manager:
+ZOSIXutils is written in [Zig 0.17.1](https://ziglang.org/download/#release-0.17.1). If you install Zig through your system's package manager, run `zig version` to confirm it reports `0.17.1` before building:
 
 ```bash
 # Arch Linux
@@ -38,10 +38,10 @@ To compile for 64-bit and 32-bit x86 targets:
 
 ```bash
 # x86-64 (Linux MUSL)
-zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseSmall
+zig build -Dtarget=x86_64-linux-musl -Doptimize=small
 
 # x86 (32-bit Linux MUSL)
-zig build -Dtarget=x86-linux-musl -Doptimize=ReleaseSmall
+zig build -Dtarget=x86-linux-musl -Doptimize=small
 ```
 
 ### AArch64 and ARM (32-bit)
@@ -50,10 +50,10 @@ To compile for 64-bit and 32-bit ARM architectures:
 
 ```bash
 # AArch64 (Linux MUSL)
-zig build -Dtarget=aarch64-linux-musl -Doptimize=ReleaseSmall
+zig build -Dtarget=aarch64-linux-musl -Doptimize=small
 
 # AArch32 / ARMv7 (Linux MUSL with hardware float)
-zig build -Dtarget=arm-linux-musleabihf -Doptimize=ReleaseSmall
+zig build -Dtarget=arm-linux-musleabihf -Doptimize=small
 ```
 
 ## AI transparency statement

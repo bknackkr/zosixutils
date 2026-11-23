@@ -122,7 +122,7 @@ pub const AstNode = struct {
 pub const MatchSpan = struct {
 	start: usize,
 	end: usize,
-	captures: [10]?[2]usize = [_]?[2]usize{null} ** 10,
+	captures: [10]?[2]usize = @splat(null),
 };
 
 pub const Regex = struct {
@@ -201,7 +201,7 @@ pub const Regex = struct {
 				return MatchSpan{ .start = 0, .end = 0 };
 			}
 			const idx = if (self.case_insensitive)
-				std.ascii.indexOfIgnoreCase(line, needle)
+				std.ascii.findIgnoreCase(line, needle)
 			else
 				std.mem.indexOf(u8, line, needle);
 			if (idx) |start| {
@@ -211,7 +211,7 @@ pub const Regex = struct {
 		}
 
 		const root = self.ast_root orelse return null;
-		var captures: [10]?[2]usize = [_]?[2]usize{null} ** 10;
+		var captures: [10]?[2]usize = @splat(null);
 
 		if (self.is_anchored_start) {
 			if (matchAstNode(root, line, 0, &captures, self.whole_line or self.is_anchored_end)) |end| {
@@ -391,7 +391,7 @@ pub const Regex = struct {
 		}
 
 		if (self.case_insensitive) {
-			return std.ascii.indexOfIgnoreCase(line, needle) != null;
+			return std.ascii.findIgnoreCase(line, needle) != null;
 		}
 		return std.mem.indexOf(u8, line, needle) != null;
 	}
@@ -501,7 +501,7 @@ pub const Regex = struct {
 
 	fn matchesAst(self: *const Regex, line: []const u8) bool {
 		const root = self.ast_root orelse return false;
-		var captures: [10]?[2]usize = [_]?[2]usize{null} ** 10;
+		var captures: [10]?[2]usize = @splat(null);
 
 		if (self.is_anchored_start) {
 			return matchAstNode(root, line, 0, &captures, self.whole_line or self.is_anchored_end) != null;
@@ -1276,6 +1276,9 @@ test "regex: fixed string matching" {
 	var re_ci = try Regex.compile(allocator, "hello", .fixed, true, false);
 	defer re_ci.deinit(allocator);
 	try std.testing.expect(re_ci.matches("HELLO world"));
+	const span = re_ci.search("say HELLO world") orelse return error.TestExpectedMatch;
+	try std.testing.expectEqual(@as(usize, 4), span.start);
+	try std.testing.expectEqual(@as(usize, 9), span.end);
 
 	// Whole line (-x)
 	var re_x = try Regex.compile(allocator, "hello", .fixed, false, true);

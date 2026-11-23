@@ -271,7 +271,7 @@ test "logname: parsePasswdLine matches target UID" {
 }
 
 test "logname: parseUtmpRecord matches USER_PROCESS and line" {
-	var record: [UTMP_RECORD_SIZE]u8 = [_]u8{0} ** UTMP_RECORD_SIZE;
+	var record: [UTMP_RECORD_SIZE]u8 = @splat(0);
 
 	// Set ut_type = USER_PROCESS (7)
 	std.mem.writeInt(i16, record[0..2], USER_PROCESS, builtin.cpu.arch.endian());
