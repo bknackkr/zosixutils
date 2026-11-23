@@ -1,19 +1,10 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `renice`.
+//! Adjust the nice values of running processes.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `renice`
-//!   - SYNOPSIS: `renice [-g|-p|-u] -n increment ID...`
-//!   - DESCRIPTION: Sets the nice values of one or more running processes.
-//!   - OPTIONS:
-//!       -g: Interpret following operands as process group IDs.
-//!       -n increment: Adjust nice value by signed decimal integer increment.
-//!       -p: Interpret following operands as process IDs (default).
-//!       -u: Interpret following operands as users (username or numeric UID).
-//!   - OPERANDS:
-//!       ID: Process ID, process group ID, or user name/user ID.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
+//! - `-n increment`: Add a signed integer to the current nice value.
+//!   The increment can also be given as the first argument without `-n`.
+//! - `-p`: Treat following operands as process IDs (default).
+//! - `-g`: Treat following operands as process group IDs.
+//! - `-u`: Treat following operands as usernames or numeric user IDs.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -147,8 +138,7 @@ pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
 	return exit_code;
 }
 
-/// Renice an individual process, process group, or user target.
-/// Returns true on success, false on error.
+/// Adjust one target's nice value and return whether it succeeded.
 fn reniceTarget(
 	io: std.Io,
 	which: common_priority.Which,

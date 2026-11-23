@@ -1,21 +1,5 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `basename`.
-//!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `basename`
-//!   - SYNOPSIS: `basename string [suffix]`
-//!   - OPTIONS: None. Conforms to Section 12.2 Utility Syntax Guidelines
-//!     (Guideline 10: '--' ends option processing).
-//!   - OPERANDS:
-//!       string: A string representing a pathname or filename.
-//!       suffix: An optional suffix string to strip from the resulting basename.
-//!   - STDOUT: "%s\n", <resulting string>
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic allocations. Operates on slices and uses fixed-size stack buffers.
+//! Print the last component of a path, optionally stripping a suffix.
+//! No flags; `--` ends option parsing.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -27,14 +11,8 @@ fn isSep(c: u8) bool {
 	return c == '/' or (builtin_is_windows and c == '\\');
 }
 
-/// POSIX.1-2024 basename algorithm:
-/// 1. If string is empty, the result is an empty string.
-/// 2. If string is "//", the result is "//".
-/// 3. If string consists entirely of slashes, the result is a single slash.
-/// 4. If there are trailing slashes, they are removed.
-/// 5. Remove prefix up to and including the last slash.
-/// 6. If suffix operand is present, is not identical to the remaining characters,
-///    and is identical to a suffix of the remaining characters, remove suffix.
+/// Return the final path component, ignoring trailing slashes and preserving `/` and `//`.
+/// Strip a matching suffix only if it leaves a nonempty name.
 pub fn posixBasename(path: []const u8, suffix: ?[]const u8) []const u8 {
 	// 1. If string is empty, return empty string
 	if (path.len == 0) return "";

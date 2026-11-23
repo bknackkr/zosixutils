@@ -1,23 +1,7 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `mkdir`.
+//! Create directories.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `mkdir`
-//!   - SYNOPSIS: `mkdir [-p] [-m mode] dir...`
-//!   - OPTIONS:
-//!       -m mode: Set the file permission bits of the newly-created directory
-//!                to the specified mode value (octal or symbolic per chmod).
-//!       -p: Create any missing intermediate pathname components.
-//!           Intermediate directories are created with (S_IWUSR|S_IXUSR|~umask)&0777.
-//!           Operands that name an existing directory are ignored without error.
-//!   - OPERANDS:
-//!       dir: A pathname of a directory to be created.
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: All specified directories created successfully (or existed with -p).
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic heap allocations in core logic (stack buffers only).
+//! - `-m mode`: Set the requested directories' permissions using an octal or symbolic mode.
+//! - `-p`: Create missing parent directories and accept existing directories.
 
 const std = @import("std");
 const builtin = @import("builtin");

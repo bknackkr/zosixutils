@@ -6,7 +6,7 @@ pub const EXIT_SYNTAX: u8 = 2;
 pub const EXIT_CANNOT_EXEC: u8 = 126;
 pub const EXIT_NOT_FOUND: u8 = 127;
 
-/// Prints: "<cmd>: <context>: <error description>\n" to stderr
+/// Print a diagnostic to standard error with the command name and optional context.
 pub fn report(cmd: []const u8, context: ?[]const u8, err: anyerror) void {
 	// Translates Zig error set to POSIX strerror equivalent and outputs
 	// cleanly without allocating heap memory.
@@ -58,7 +58,7 @@ pub fn report(cmd: []const u8, context: ?[]const u8, err: anyerror) void {
 	}
 }
 
-/// Maps an unexpected error to a standard exit status code.
+/// Map an error to an exit status.
 pub fn toExitCode(err: anyerror) u8 {
 	return switch (err) {
 		error.FileNotFound => EXIT_FAILURE,

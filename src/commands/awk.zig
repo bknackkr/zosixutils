@@ -1,20 +1,8 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `awk`.
+//! Process text records with an awk program given inline or loaded with `-f`.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `awk`
-//!   - SYNOPSIS:
-//!       awk [-F sepstring] [-v assignment]... program [argument...]
-//!       awk [-F sepstring] -f progfile... [-v assignment]... [argument...]
-//!   - OPTIONS:
-//!       -F sepstring: Define input field separator (FS).
-//!       -v assignment: Assign variable before program execution.
-//!       -f progfile: Path to awk program file. Multiple -f concatenate files.
-//!   - OPERANDS:
-//!       program: Awk program text if -f not specified.
-//!       argument: Either file operand or var=val assignment.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred (or explicit exit code).
+//! - `-F separator`: Set the input field separator.
+//! - `-v name=value`: Set a variable before running the program.
+//! - `-f file`: Load program text from a file; repeat to combine files.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

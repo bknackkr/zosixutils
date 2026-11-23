@@ -1,27 +1,11 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `uname`.
+//! Print operating system and hardware information.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `uname`
-//!   - SYNOPSIS: `uname [-amnrsv]`
-//!   - DESCRIPTION: Writes operating system and hardware characteristics to stdout.
-//!   - OPTIONS:
-//!       -a: Behave as though all options -mnrsv were specified.
-//!       -m: Write the name of the hardware type (machine).
-//!       -n: Write the name of this node within a communications network.
-//!       -r: Write the current release level of the operating system.
-//!       -s: Write the name of the operating system implementation (default).
-//!       -v: Write the current version level of this release.
-//!   - OPERANDS: None. Conforms to Section 12.2 Utility Syntax Guidelines
-//!     (Guideline 10: '--' ends option processing).
-//!   - STDOUT: Single line with symbols separated by single space characters,
-//!     ordered as: sysname, nodename, release, version, machine.
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic allocations. Stack-allocated buffers for I/O and utsname structures.
+//! - `-a`: Print all fields.
+//! - `-s`: Print the system name (default).
+//! - `-n`: Print the network node name.
+//! - `-r`: Print the system release.
+//! - `-v`: Print the system version.
+//! - `-m`: Print the machine hardware type.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -56,9 +40,7 @@ pub const SystemInfo = struct {
 	machine: []const u8,
 };
 
-/// Core uname output formatter decoupled from writer destination for testing.
-/// Writes selected system symbols in strict POSIX order:
-/// sysname, nodename, release, version, machine.
+/// Write the selected fields in order: system, node, release, version, machine.
 pub fn writeUname(writer: *std.Io.Writer, info: SystemInfo, flags: Flags) !void {
 	var has_printed = false;
 

@@ -18,8 +18,7 @@ pub const ArgParser = struct {
 		};
 	}
 
-	/// Returns the next parsed option flag character, '?' on unknown flag, 
-	/// ':' on missing argument, or null when options are exhausted.
+	/// Return the next option, `?` for an unknown flag, `:` for a missing value, or null at the end.
 	pub fn next(self: *ArgParser, optstring: []const u8) ?u8 {
 		self.optarg = null;
 		self.optopt = 0;
@@ -101,7 +100,7 @@ pub const ArgParser = struct {
 		}
 	}
 
-	/// Returns remaining positional arguments once option parsing finishes.
+	/// Return the operands left after option parsing.
 	pub fn remaining(self: *const ArgParser) []const [:0]const u8 {
 		return self.args[self.arg_idx..];
 	}

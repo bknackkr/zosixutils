@@ -1,4 +1,7 @@
-//! POSIX df backed by Linux mount IDs and fstatfs.
+//! Report space usage for mounted filesystems or the filesystems containing named paths.
+//!
+//! - `-k`: Use 1024-byte blocks instead of 512-byte blocks.
+//! - `-P`: Request the portable output format, which is already the default.
 
 const std = @import("std");
 const builtin = @import("builtin");

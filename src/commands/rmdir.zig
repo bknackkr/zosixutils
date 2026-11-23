@@ -1,22 +1,6 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `rmdir`.
+//! Remove empty directories.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `rmdir`
-//!   - SYNOPSIS: `rmdir [-p] dir...`
-//!   - OPTIONS:
-//!       -p: Remove all directories in a pathname. For each dir operand:
-//!           1. The directory entry it names shall be removed.
-//!           2. If dir includes more than one pathname component, effects
-//!              equivalent to `rmdir -p $(dirname dir)` shall occur.
-//!   - OPERANDS:
-//!       dir: A pathname of an empty directory to be removed.
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: Each directory entry specified by a dir operand was removed successfully.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic heap allocations in core logic (stack buffers only).
+//! - `-p`: After removing each named directory, remove its parents if they are empty.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -55,8 +39,7 @@ fn removeSingleDir(io: std.Io, path: []const u8) !void {
 	try std.Io.Dir.cwd().deleteDir(io, path);
 }
 
-/// Remove a directory and iteratively remove parent components with `rmdir -p`.
-/// Returns true if all components were removed, false if an error occurred.
+/// Remove a directory and its parents, returning whether all removals succeeded.
 fn removePathRecursive(io: std.Io, raw_path: []const u8) bool {
 	var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
 	const initial = stripTrailingSlashes(raw_path);

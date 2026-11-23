@@ -1,5 +1,6 @@
 .zig-cache/
 zig-out/
 .agents/
+AGENTS.md
 .kilo/
 contextdocs/

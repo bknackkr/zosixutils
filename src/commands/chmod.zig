@@ -1,18 +1,6 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `chmod`.
+//! Change file permissions using an octal or symbolic mode.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `chmod`
-//!   - SYNOPSIS: `chmod [-R] mode file...`
-//!   - OPTIONS:
-//!       -R: Recursively change file mode bits. For each file operand that names
-//!           a directory, chmod alters the mode of the directory and all files in it.
-//!           If a symbolic link is encountered during traversal, it is not followed.
-//!   - OPERANDS:
-//!       mode: Represents the change to be made to the file mode bits of each file (octal or symbolic).
-//!       file: A pathname of a file whose mode bits shall be modified.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
+//! - `-R`: Recurse into directories without following symlinks encountered inside them.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

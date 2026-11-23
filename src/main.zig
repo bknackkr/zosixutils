@@ -1,11 +1,5 @@
-//! zosixutils - auditable, POSIX-compliant multicall binary
-//!
-//! Entry point and multicall router:
-//! 1. Identify the invocation name by stripping directory paths from argv[0].
-//! 2. If argv[0] matches zosixutils (or root binary name), argv[1] determines the command.
-//! 3. If symlinked/hardlinked directly as a command (e.g. /bin/cat -> /bin/zosixutils),
-//!    dispatch immediately to that command's run function.
-//! 4. If no command matches, display an auditable list of built-in applets and exit with status 1.
+//! Run an applet as `zosixutils <applet>`, or invoke the binary by the applet's name.
+//! If no applet matches, print usage and exit with status 1.
 
 const std = @import("std");
 
@@ -60,7 +54,7 @@ pub const Applet = struct {
 	description: []const u8,
 };
 
-/// Registry of all currently implemented applets in zosixutils.
+/// Built-in applets and their usage descriptions.
 pub const applets = [_]Applet{
 	.{
 		.name = "awk",

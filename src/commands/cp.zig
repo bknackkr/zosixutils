@@ -1,26 +1,12 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `cp`.
+//! Copy a source to a destination, or copy multiple sources into a directory.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `cp`
-//!   - SYNOPSIS:
-//!       cp [-Pfip] source_file target_file
-//!       cp [-Pfip] source_file... target
-//!       cp -R [-H|-L|-P] [-fip] source_file... target
-//!   - OPTIONS:
-//!       -f: Unlink destination and retry if open for writing fails.
-//!       -i: Prompt on stderr before overwriting existing destination.
-//!       -p: Duplicate atime, mtime, permissions, and owner/group if possible.
-//!       -R, -r: Copy file hierarchies.
-//!       -H: Follow symlinks specified as operands.
-//!       -L: Follow all symlinks.
-//!       -P: Do not follow symlinks (default for -R).
-//!   - OPERANDS:
-//!       source_file: A pathname of a file to be copied.
-//!       target_file: The pathname of the output file.
-//!       target: A pathname of an existing directory.
-//!   - EXIT STATUS:
-//!       0: All requested files were successfully copied.
-//!       >0: An error occurred.
+//! - `-f`: Remove the destination and retry if opening it for writing fails.
+//! - `-i`: Prompt before overwriting an existing destination.
+//! - `-p`: Preserve timestamps, permissions, and ownership when possible.
+//! - `-R`, `-r`: Copy directories recursively.
+//! - `-H`: Follow symlinks given as operands.
+//! - `-L`: Follow all symlinks.
+//! - `-P`: Copy symlinks themselves (default for recursive copies).
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -402,7 +388,6 @@ pub fn copyNode(
 	}
 }
 
-/// Execute cp utility per IEEE Std 1003.1-2024.
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
 	_ = allocator;
 	const io = std.Io.Threaded.global_single_threaded.io();

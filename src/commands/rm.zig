@@ -1,24 +1,12 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `rm`.
+//! Remove files and, with the appropriate flags, directories.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `rm`
-//!   - SYNOPSIS:
-//!       rm [-diRrv] file...
-//!       rm -f [-diRrv] [file...]
-//!   - OPTIONS:
-//!       -d: Remove empty directories.
-//!       -f: Do not prompt for confirmation. Do not write diagnostic messages
-//!           or modify exit status for non-existent operands. Exit status 0 if no operands.
-//!       -i: Prompt for confirmation before removing each directory entry.
-//!       -R, -r: Remove file hierarchies (recursive).
-//!       -v: Verbose. After each file has been removed, write a message to stdout.
-//!   - OPERANDS:
-//!       file: A pathname of a directory entry to be removed.
-//!       If dot or dot-dot are specified as basename or operand resolves to root,
-//!       rm shall write diagnostic to stderr and do nothing with such operand.
-//!   - EXIT STATUS:
-//!       0: All requested directory entries were successfully deleted.
-//!       >0: An error occurred.
+//! - `-d`: Remove empty directories.
+//! - `-f`: Never prompt; ignore missing paths and accept an empty operand list.
+//! - `-i`: Prompt before each removal.
+//! - `-R`, `-r`: Remove directories and their contents recursively.
+//! - `-v`: Print each path removed.
+//!
+//! If both `-f` and `-i` are given, the last one wins.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -200,7 +188,6 @@ fn removeHierarchy(io: std.Io, path: []const u8, opts: RmOptions) bool {
 	return true;
 }
 
-/// Execute rm utility per IEEE Std 1003.1-2024.
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
 	_ = allocator;
 	const io = std.Io.Threaded.global_single_threaded.io();

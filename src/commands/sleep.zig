@@ -1,14 +1,5 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `sleep`.
-//!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `sleep`
-//!   - SYNOPSIS: `sleep time`
-//!   - DESCRIPTION: Suspend execution for at least `time` seconds.
-//!   - OPERANDS: `time` is a non-negative decimal integer specifying seconds.
-//!   - OPTIONS: None. (Conforms to standard utility syntax, meaning `--` is supported).
-//!   - EXIT STATUS:
-//!       0: Successful completion (slept for at least `time`).
-//!       >0: An error occurred.
+//! Pause for the given number of seconds, as a nonnegative decimal integer.
+//! No flags; `--` ends option parsing.
 
 const std = @import("std");
 const common_error = @import("../common/error.zig");

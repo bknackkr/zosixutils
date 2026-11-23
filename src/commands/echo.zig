@@ -1,43 +1,12 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `echo`.
-//!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `echo`
-//!   - SYNOPSIS: `echo [string...]`
-//!   - OPTIONS: "Implementations shall not support any options."
-//!              "The echo utility shall not recognize the '--' argument...
-//!               '--' shall be recognized as a string operand."
-//!   - OPERANDS: Under [XSI] conformant behavior:
-//!       - If the first operand consists of '-' followed by chars from {'e', 'E', 'n'},
-//!         it is treated as a string operand to be written.
-//!       - Escape sequences supported within operands:
-//!           \a     Write an <alert> (ASCII 0x07).
-//!           \b     Write a <backspace> (ASCII 0x08).
-//!           \c     Suppress the <newline> that otherwise follows the final argument.
-//!                  All characters following the '\c' in the arguments shall be ignored.
-//!           \f     Write a <form-feed> (ASCII 0x0C).
-//!           \n     Write a <newline> (ASCII 0x0A).
-//!           \r     Write a <carriage-return> (ASCII 0x0D).
-//!           \t     Write a <tab> (ASCII 0x09).
-//!           \v     Write a <vertical-tab> (ASCII 0x0B).
-//!           \\     Write a <backslash> character ('\').
-//!           \0num  Write an 8-bit value that is the zero, one, two, or
-//!                  three-digit octal number num.
-//!       - Unrecognized backslash sequences write the backslash and character.
-//!   - STDOUT: Operands separated by single <space> characters; trailing <newline>
-//!             follows the last argument unless suppressed by \c.
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic allocations. Uses fixed-size stack buffers for I/O.
+//! Print arguments separated by spaces, followed by a newline.
+//! No flags; arguments such as `-n`, `-e`, and `--` are printed literally.
+//! Recognizes `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`, `\\`, and `\0` plus up to
+//! three octal digits. `\c` stops output without writing the final newline.
 
 const std = @import("std");
 const common_error = @import("../common/error.zig");
 
-/// Core echo writing logic decoupled from the underlying I/O destination for testability.
-/// Returns `true` if trailing newline should be output, or `false` if `\c` suppressed it.
+/// Write the arguments and return whether to append a newline.
 fn writeEcho(writer: *std.Io.Writer, args: []const [:0]const u8) !bool {
 	for (args, 0..) |arg, arg_idx| {
 		// POSIX: Arguments shall be separated by single <space> characters.

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-/// Search /etc/passwd for a username and return the UID if found.
+/// Look up a username's UID in `/etc/passwd`.
 pub fn findUidByName(io: std.Io, username: []const u8) ?u32 {
 	if (username.len == 0) return null;
 
@@ -24,7 +24,7 @@ pub fn findUidByName(io: std.Io, username: []const u8) ?u32 {
 	return null;
 }
 
-/// Search /etc/group for a group name and return the GID if found.
+/// Look up a group name's GID in `/etc/group`.
 pub fn findGidByName(io: std.Io, groupname: []const u8) ?u32 {
 	if (groupname.len == 0) return null;
 
@@ -48,7 +48,7 @@ pub fn findGidByName(io: std.Io, groupname: []const u8) ?u32 {
 	return null;
 }
 
-/// Search /etc/passwd for a UID and copy the username into `out_buf`.
+/// Look up a UID in `/etc/passwd` and copy its username into `out_buf`.
 pub fn findNameByUid(io: std.Io, uid: u32, out_buf: []u8) ?[]const u8 {
 	var file = std.Io.Dir.openFileAbsolute(io, "/etc/passwd", .{}) catch return null;
 	defer file.close(io);
@@ -73,7 +73,7 @@ pub fn findNameByUid(io: std.Io, uid: u32, out_buf: []u8) ?[]const u8 {
 	return null;
 }
 
-/// Search /etc/group for a GID and copy the groupname into `out_buf`.
+/// Look up a GID in `/etc/group` and copy its group name into `out_buf`.
 pub fn findNameByGid(io: std.Io, gid: u32, out_buf: []u8) ?[]const u8 {
 	var file = std.Io.Dir.openFileAbsolute(io, "/etc/group", .{}) catch return null;
 	defer file.close(io);

@@ -1,25 +1,5 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `logname`.
-//!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `logname`
-//!   - SYNOPSIS: `logname`
-//!   - DESCRIPTION: Writes the user's login name to standard output. The login name
-//!     shall be the string that would be returned by the getlogin() function defined
-//!     in POSIX.1-2024. Under conditions where getlogin() would fail, logname writes
-//!     a diagnostic message to standard error and exits with a non-zero status.
-//!   - OPTIONS: None. Conforms to Section 12.2 Utility Syntax Guidelines
-//!     (Guideline 10: '--' terminates option processing).
-//!   - OPERANDS: None. Extraneous operands are rejected with EXIT_SYNTAX (2).
-//!   - STDOUT: Single line consisting of the user's login name:
-//!       "%s\n", <login name>
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred (1 for login name failure, 2 for syntax error).
-//!   - APPLICATION USAGE: Explicitly ignores the LOGNAME environment variable.
-//!
-//! Resource Constraint:
-//! - Zero dynamic heap allocations in core logic (stack buffers only).
+//! Print the session's login name without consulting `LOGNAME`.
+//! No flags or operands; `--` is accepted.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -65,8 +45,7 @@ pub fn findUserInPasswd(io: std.Io, target_uid: u32, out_buf: []u8) ?[]const u8 
 	return null;
 }
 
-/// Read Linux audit session loginuid from /proc/self/loginuid.
-/// Returns null if unavailable or if set to the kernel sentinel (uid_t)-1 (4294967295).
+/// Read `/proc/self/loginuid`, returning null if unavailable or unset.
 pub fn readLoginUid(io: std.Io) ?u32 {
 	var file = std.Io.Dir.openFileAbsolute(io, "/proc/self/loginuid", .{}) catch return null;
 	defer file.close(io);
@@ -122,7 +101,7 @@ pub fn findUserInUtmp(io: std.Io, tty_line: []const u8, out_buf: []u8) ?[]const 
 	return null;
 }
 
-/// Locate controlling terminal line name across file descriptors 0, 1, 2 per POSIX getlogin().
+/// Find the terminal line name from standard input, output, or error.
 pub fn getControllingTtyLine(io: std.Io, out_line_buf: []u8) ?[]const u8 {
 	const std_files = [_]std.Io.File{
 		std.Io.File.stdin(),

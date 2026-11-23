@@ -1,28 +1,6 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `cat`.
+//! Copy files to standard output in order. Read standard input for `-` or when no files are given.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `cat`
-//!   - SYNOPSIS: `cat [-u] [file...]`
-//!   - DESCRIPTION: Reads files in sequence and writes their contents to standard
-//!     output in the same sequence.
-//!   - OPTIONS:
-//!       -u: Write bytes from the input file to the standard output without delay
-//!           as each is read (unbuffered write).
-//!       Conforms to Utility Syntax Guidelines (Guideline 10: '--' terminates options).
-//!   - OPERANDS:
-//!       file: Pathname of an input file. If no file operands are specified,
-//!             the standard input shall be used. If a file is '-', read from
-//!             standard input at that point. Do not close standard input when
-//!             referenced this way, and accept multiple occurrences of '-'.
-//!   - STDOUT: Sequence of bytes read from input files. If stdout is a regular file
-//!             and is the same file as any input file operands, treat as an error.
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: All input files were output successfully.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic allocations. Uses fixed-size stack buffers for I/O.
+//! - `-u`: Write input as it is read, without buffering output.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -36,9 +14,7 @@ pub const PumpResult = union(enum) {
 	write_err: anyerror,
 };
 
-/// Pump data from `in_file` to standard output.
-/// If `unbuffered` is true, write directly via `writeStreamingAll` without delay.
-/// If `unbuffered` is false, write to the buffered `stdout_writer`.
+/// Copy `in_file` to standard output, bypassing `stdout_writer` if unbuffered.
 pub fn pumpFile(
 	io: std.Io,
 	in_file: std.Io.File,

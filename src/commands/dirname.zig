@@ -1,20 +1,5 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `dirname`.
-//!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `dirname`
-//!   - SYNOPSIS: `dirname string`
-//!   - OPTIONS: None. Conforms to Section 12.2 Utility Syntax Guidelines
-//!     (Guideline 10: '--' ends option processing).
-//!   - OPERANDS:
-//!       string: A string representing a pathname.
-//!   - STDOUT: "%s\n", <resulting string>
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic allocations. Operates on slices and uses fixed-size stack buffers.
+//! Print the directory portion of a path, or `.` if it has none.
+//! No flags; `--` ends option parsing.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -30,14 +15,7 @@ fn isTwoSlashRoot(path: []const u8) bool {
 	return path.len >= 2 and isSep(path[0]) and isSep(path[1]) and (path.len == 2 or !isSep(path[2]));
 }
 
-/// POSIX.1-2024 dirname algorithm:
-/// 1. If string is empty, result is ".".
-/// 2. If string is "//", result is "//".
-/// 3. If string consists entirely of slashes, result is "/".
-/// 4. If there are trailing slashes, they are removed.
-/// 5. Remove trailing non-slash characters (last component).
-/// 6. If no slashes remain, result is ".".
-/// 7. Remove trailing slashes from the directory portion, unless remaining is "/" or "//".
+/// Return the parent path without trailing slashes, preserving `/` and `//`.
 pub fn posixDirname(path: []const u8) []const u8 {
 	// 1. If string is empty, return "."
 	if (path.len == 0) return ".";

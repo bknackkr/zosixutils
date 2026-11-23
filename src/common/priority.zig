@@ -1,13 +1,9 @@
-//! POSIX process scheduling priority (nice value) abstractions.
-//!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, System Interfaces (XSH), Section: `getpriority`, `setpriority`
-//! - Linux man pages: getpriority(2), setpriority(2)
+//! Read and change nice values for processes, process groups, and users.
 
 const std = @import("std");
 const builtin = @import("builtin");
 
-/// Specifies the target entity whose priority is to be retrieved or set.
+/// Selects how to interpret the target ID.
 pub const Which = enum(u32) {
 	process = 0, // PRIO_PROCESS (who is a PID)
 	pgrp = 1, // PRIO_PGRP (who is a process group ID)
@@ -42,7 +38,7 @@ pub fn getPriority(which: Which, who: u32) !i32 {
 }
 
 /// Set the nice value of a process, process group, or user.
-/// The requested `nice_val` is clamped to the system range [PRIO_MIN, PRIO_MAX].
+/// Clamp `nice_val` to the supported range (`-20` to `19`).
 pub fn setPriority(which: Which, who: u32, nice_val: i32) !void {
 	const clamped_nice = std.math.clamp(nice_val, PRIO_MIN, PRIO_MAX);
 

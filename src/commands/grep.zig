@@ -1,28 +1,17 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `grep`.
+//! Select input lines by pattern. Patterns are basic regular expressions by default.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `grep`
-//!   - SYNOPSIS:
-//!       grep [-E|-F] [-c|-l|-q] [-insvx] -e pattern_list... [-f pattern_file...] [file...]
-//!       grep [-E|-F] [-c|-l|-q] [-insvx] [-e pattern_list...] -f pattern_file... [file...]
-//!       grep [-E|-F] [-c|-l|-q] [-insvx] pattern_list [file...]
-//!   - OPTIONS:
-//!       -E: Match using extended regular expressions (ERE).
-//!       -F: Match using fixed strings.
-//!       -c: Write only a count of selected lines to standard output.
-//!       -e: Specify pattern list (newline-separated). Multiple -e accepted.
-//!       -f: Read patterns from pattern file (newline-terminated). Multiple -f accepted.
-//!       -i: Case-insensitive matching.
-//!       -l: Write only the names of files containing selected lines.
-//!       -n: Precede each output line by its relative 1-based line number.
-//!       -q: Quiet mode (exit 0 immediately if line selected; suppress output).
-//!       -s: Suppress error messages ordinarily written for nonexistent or unreadable files.
-//!       -v: Select lines not matching any specified pattern.
-//!       -x: Match entire line (excluding terminating newline).
-//!   - EXIT STATUS:
-//!       0: One or more lines were selected.
-//!       1: No lines were selected.
-//!       >1 (2): An error occurred (syntax, unreadable file), unless -q matched.
+//! - `-E`: Use extended regular expressions.
+//! - `-F`: Match literal strings.
+//! - `-c`: Print only the count of selected lines.
+//! - `-e patterns`: Supply one or more newline-separated patterns; repeatable.
+//! - `-f file`: Read patterns from a file, one per line; repeatable.
+//! - `-i`: Ignore case.
+//! - `-l`: Print only names of files with selected lines.
+//! - `-n`: Prefix selected lines with their line numbers.
+//! - `-q`: Suppress normal output and exit successfully on the first match.
+//! - `-s`: Suppress errors about missing or unreadable input files.
+//! - `-v`: Select nonmatching lines.
+//! - `-x`: Match only whole lines.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

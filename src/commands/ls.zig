@@ -1,45 +1,28 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `ls`.
+//! List files and directory contents, defaulting to the current directory.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `ls`
-//!   - SYNOPSIS:
-//!       ls [-ikqrs] [-gln|o] [-A|-a] [-C|-m|-x|-1] [-F|-p] [-H|-L]
-//!          [-R|-d] [-S|-f|-t] [-c|-u] [file...]
-//!   - DESCRIPTION:
-//!       For each operand naming a non-directory file, writes file name and
-//!       requested info. For each directory operand, writes names and info of
-//!       contained files. Non-directory operands are output first, followed by
-//!       directory operands. If no operands specified, defaults to dot ('.').
-//!   - OPTIONS:
-//!       -a: Write all directory entries including '.' and '..'.
-//!       -A: Write all directory entries including '.*' but excluding '.' and '..'.
-//!       -d: Do not treat directories differently than other files (list directory itself).
-//!       -1: Force one entry per line output.
-//!       -C: Multi-column output, sorted down columns.
-//!       -x: Multi-column output, sorted across columns.
-//!       -m: Stream format output (comma-separated list across line width).
-//!       -l: Long format: mode, nlink, owner, group, size/device, date/time, name.
-//!       -n: Long format with numeric UIDs and GIDs.
-//!       -g: Long format, disable owner name/ID.
-//!       -o: Long format, disable group name/ID.
-//!       -F: Append indicator: '/' (dir), '*' (exec), '|' (FIFO), '=' (socket), '@' (symlink).
-//!       -p: Append '/' indicator to directories.
-//!       -i: Output file serial number (inode).
-//!       -s: Output number of allocated file system blocks.
-//!       -k: Set block size for -s and directory total to 1024-byte units (default 512).
-//!       -t: Sort by modification time (most recent first). Secondary key: filename.
-//!       -S: Sort by file size (largest first). Secondary key: filename.
-//!       -f: List in directory order; turns on -a; ignores -r, -S, -t.
-//!       -r: Reverse sort order.
-//!       -c: Use status change time (ctime) for sorting (-t) or writing (-l).
-//!       -u: Use access time (atime) for sorting (-t) or writing (-l).
-//!       -H: Follow symlinks named on command line.
-//!       -L: Follow all symlinks (operands and within hierarchy).
-//!       -R: Recursively list subdirectories encountered; detect loops.
-//!       -q: Replace non-printable characters in filenames with '?'.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
+//! - `-a`: Include hidden names, `.` and `..`.
+//! - `-A`: Include hidden names except `.` and `..`.
+//! - `-d`: List directories themselves, not their contents.
+//! - `-R`: List subdirectories recursively.
+//! - `-H`: Follow symlinks given as operands.
+//! - `-L`: Follow all symlinks.
+//! - `-1`: Print one entry per line, keeping long format if requested.
+//! - `-C`, `-x`: Fill columns down or across, respectively.
+//! - `-m`: Separate entries with commas.
+//! - `-l`: Show permissions, link count, owner, group, size or device, and time.
+//! - `-n`: Use numeric user and group IDs in long format.
+//! - `-g`, `-o`: Use long format without the owner or group column, respectively.
+//! - `-F`: Append type indicators: `/` directory, `*` executable, `|` FIFO, `=` socket, `@` symlink.
+//! - `-p`: Append `/` to directory names.
+//! - `-q`: Replace nonprinting filename characters with `?`.
+//! - `-i`: Show inode numbers.
+//! - `-s`: Show allocated blocks.
+//! - `-k`: Use 1024-byte blocks for block counts and totals (default: 512).
+//! - `-t`: Sort by time, newest first.
+//! - `-S`: Sort by size, largest first.
+//! - `-f`: Include hidden entries and list in directory order without sorting.
+//! - `-r`: Reverse the sort order.
+//! - `-c`, `-u`: Use status change time or access time, respectively, for `-t` and `-l`.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -361,7 +344,7 @@ pub fn compareEntries(opts: LsOptions, a: FileInfo, b: FileInfo) bool {
 	return result == .lt;
 }
 
-/// Format the 10-character POSIX file mode string (e.g. "drwxr-xr-x").
+/// Format the file type and permissions, for example `drwxr-xr-x`.
 pub fn formatFileMode(buf: *[10]u8, mode: u32, kind: std.Io.File.Kind) void {
 	buf[0] = switch (kind) {
 		.directory => 'd',
@@ -399,7 +382,7 @@ pub fn formatFileMode(buf: *[10]u8, mode: u32, kind: std.Io.File.Kind) void {
 	}
 }
 
-/// Format the POSIX date/time string: "%b %e %H:%M" or "%b %e  %Y".
+/// Format a listing timestamp with the time of day or the year.
 pub fn formatDate(buf: []u8, timestamp_sec: i64, now_sec: i64) []const u8 {
 	const months = [_][]const u8{
 		"Jan", "Feb", "Mar", "Apr", "May", "Jun",

@@ -1,4 +1,11 @@
-//! POSIX.1-2024 `du`: report allocated storage for files and directory trees.
+//! Report disk usage for files and directory trees, defaulting to the current directory.
+//!
+//! - `-a`: Report individual files as well as directories.
+//! - `-s`: Report only the total for each operand; cannot be combined with `-a`.
+//! - `-k`: Use 1024-byte blocks instead of 512-byte blocks.
+//! - `-x`: Stay on the same filesystem as each operand.
+//! - `-H`: Follow symlinks given as operands.
+//! - `-L`: Follow all symlinks.
 
 const std = @import("std");
 const builtin = @import("builtin");

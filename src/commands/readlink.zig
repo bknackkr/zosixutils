@@ -1,32 +1,11 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `readlink`.
+//! Print the stored target of a symlink without resolving it.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `readlink`
-//!   - SYNOPSIS: `readlink [-n] file`
-//!   - OPTIONS:
-//!       -n: Do not output a trailing <newline> character.
-//!   - OPERANDS:
-//!       file: A pathname of a symbolic link to be read.
-//!   - DESCRIPTION:
-//!       If the file operand names a symbolic link, the readlink utility shall
-//!       not follow the symbolic link when resolving file and shall write the
-//!       contents of the symbolic link to standard output. If the -n option is
-//!       not specified, the output to standard output shall be followed by a
-//!       <newline> character.
-//!       If file does not name a symbolic link, readlink shall write a diagnostic
-//!       message to standard error and exit with non-zero status.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic heap allocations in core logic (stack buffers only).
+//! - `-n`: Omit the trailing newline.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
 const common_error = @import("../common/error.zig");
 
-/// Execute readlink utility per IEEE Std 1003.1-2024.
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
 	_ = allocator;
 

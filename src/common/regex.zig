@@ -1,16 +1,6 @@
-//! POSIX.1-2024 Regular Expression & Pattern Matching Engine
-//!
-//! Provides:
-//! 1. High-throughput Fixed String Matching (`-F`) with case-insensitive ASCII optimization.
-//! 2. Bytecode-based Thompson NFA (Pike VM) for Basic (BRE) and Extended (ERE) Regular Expressions:
-//!    - Guarantees O(P * N) linear time matching (ReDoS immune).
-//!    - Zero dynamic allocations during matching (uses pre-allocated thread and bitset buffers).
-//!    - 256-bit character class bitsets for O(1) bracket expression testing.
-//!    - POSIX character classes: [:alnum:], [:alpha:], [:blank:], [:cntrl:], [:digit:],
-//!      [:graph:], [:lower:], [:print:], [:punct:], [:space:], [:upper:], [:xdigit:].
-//!    - Quantifiers: '*', '+', '?', and interval repetition '{m,n}'.
-//!    - Alternation and subexpression grouping.
-//! 3. AST recursive matcher fallback for BRE patterns with backreferences (`\1`..`\9`).
+//! Match literal strings and basic or extended regular expressions.
+//! Most regular expressions use a Pike VM; basic patterns with backreferences
+//! use a recursive matcher instead. Neither allocates heap memory during matching.
 
 const std = @import("std");
 
@@ -359,8 +349,7 @@ pub const Regex = struct {
 		}
 	}
 
-	/// Matches `line` against the compiled pattern.
-	/// Guaranteed zero dynamic heap allocations during execution.
+	/// Match `line` against the compiled pattern without heap allocations.
 	pub fn matches(self: *const Regex, line: []const u8) bool {
 		if (self.mode == .fixed) {
 			return self.matchesFixed(line);

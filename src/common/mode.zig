@@ -11,7 +11,7 @@ pub fn parseOctalMode(str: []const u8) ?std.posix.mode_t {
 	return mode & 0o7777;
 }
 
-/// Parse symbolic mode clause per POSIX.1-2024 chmod specification.
+/// Apply comma-separated permission changes such as `u+x,g-w` to the initial mode.
 pub fn parseSymbolicMode(str: []const u8, initial_mode: std.posix.mode_t, umask_val: std.posix.mode_t) ?std.posix.mode_t {
 	if (str.len == 0) return null;
 

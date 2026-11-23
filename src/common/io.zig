@@ -2,8 +2,7 @@ const std = @import("std");
 
 pub const BUFFER_SIZE: usize = 16 * 1024; // 16 KB safe for 32-bit stack limits
 
-/// Copies all data from `src` to `dst` using an internal stack buffer.
-/// Returns total bytes written or an error.
+/// Copy `src` to `dst` using a stack buffer and return the byte count.
 pub fn pump(src: std.posix.fd_t, dst: std.posix.fd_t) !u64 {
 	var buf: [BUFFER_SIZE]u8 = undefined;
 	var total: u64 = 0;
@@ -22,7 +21,7 @@ pub fn pump(src: std.posix.fd_t, dst: std.posix.fd_t) !u64 {
 	return total;
 }
 
-/// Standardized unbuffered write to stderr for warnings/errors.
+/// Write to standard error without buffering.
 pub fn printError(comptime fmt: []const u8, args: anytype) void {
 	std.debug.print(fmt, args);
 }

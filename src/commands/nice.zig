@@ -1,20 +1,7 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `nice`.
+//! Run a command with an adjusted nice value.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `nice`
-//!   - SYNOPSIS: `nice [-n increment] utility [argument...]`
-//!   - DESCRIPTION: Invokes a utility with an altered nice value.
-//!   - OPTIONS:
-//!       -n increment: A positive or negative decimal integer to adjust nice value.
-//!   - OPERANDS:
-//!       utility: The name of the utility to be invoked.
-//!       argument: Any arguments supplied to the utility.
-//!   - EXIT STATUS:
-//!       If utility is invoked, the exit status of nice shall be the exit status of utility.
-//!       Otherwise:
-//!       1-125: An error occurred in the nice utility itself.
-//!       126: Utility was found but could not be invoked.
-//!       127: Utility could not be found.
+//! - `-n increment`: Add a signed integer to the current nice value (default: `10`).
+//!   A signed number such as `+5` or `-5` also works as shorthand.
 
 const std = @import("std");
 const builtin = @import("builtin");

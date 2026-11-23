@@ -1,19 +1,7 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `paste`.
+//! Join corresponding lines from input files. Use `-` to read standard input.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `paste`
-//!   - SYNOPSIS:
-//!       paste [-s] [-d list] file...
-//!   - OPTIONS:
-//!       -d list: Circular list of delimiter characters.
-//!                Supports escapes: \n, \t, \\, \0 (empty string). Default is tab.
-//!       -s: Concatenate all lines from each input file into one line per file.
-//!   - OPERANDS:
-//!       file: Input file pathname. '-' represents standard input.
-//!             If multiple '-' appear, lines from stdin are consumed circularly.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
+//! - `-d list`: Cycle through delimiters instead of tabs. Recognizes `\n`, `\t`, `\\`, and `\0` (empty).
+//! - `-s`: Join each file's lines into one line per file.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

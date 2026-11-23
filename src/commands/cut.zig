@@ -1,21 +1,11 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `cut`.
+//! Select bytes, characters, or fields from each input line.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `cut`
-//!   - SYNOPSIS:
-//!       cut -b list [-n] [file...]
-//!       cut -c list [file...]
-//!       cut -f list [-d delim] [-s] [file...]
-//!   - OPTIONS:
-//!       -b list: Cut based on a list of bytes.
-//!       -c list: Cut based on a list of characters.
-//!       -d delim: Set the field delimiter character (default is tab).
-//!       -f list: Cut based on a list of fields separated by delim.
-//!       -n: Do not split characters (when used with -b).
-//!       -s: Suppress lines with no delimiter characters (when used with -f).
-//!   - EXIT STATUS:
-//!       0: All input files were output successfully.
-//!       >0: An error occurred.
+//! - `-b list`: Select byte positions.
+//! - `-c list`: Select character positions.
+//! - `-f list`: Select fields.
+//! - `-d delimiter`: Set the field delimiter (default: tab).
+//! - `-n`: With `-b`, avoid splitting characters.
+//! - `-s`: With `-f`, skip lines without a delimiter.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

@@ -1,28 +1,9 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `ln`.
+//! Create a link at a destination, or create links for multiple sources in a directory.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `ln`
-//!   - SYNOPSIS:
-//!       ln [-fs] [-L|-P] source_file target_file
-//!       ln [-fs] [-L|-P] source_file... target_dir
-//!   - OPTIONS:
-//!       -f: Force existing destination pathnames to be removed to allow the link.
-//!       -L: For each source_file operand that names a file of type symbolic link,
-//!           create a hard link to the file referenced by the symbolic link.
-//!       -P: For each source_file operand that names a file of type symbolic link,
-//!           create a hard link to the symbolic link itself.
-//!       -s: Create symbolic links instead of hard links. If -s is specified,
-//!           -L and -P are silently ignored.
-//!   - OPERANDS:
-//!       source_file: A pathname of a file to be linked.
-//!       target_file: The pathname of the new directory entry to be created.
-//!       target_dir: A pathname of an existing directory in which new entries are created.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
-//!
-//! Resource Constraint:
-//! - Zero dynamic heap allocations in core logic (stack buffers only).
+//! - `-f`: Replace existing destination entries.
+//! - `-s`: Create symlinks instead of hard links; ignore `-L` and `-P`.
+//! - `-L`: Hard-link to a source symlink's target.
+//! - `-P`: Hard-link to the source symlink itself (default).
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -93,7 +74,6 @@ fn formatDestPath(buf: []u8, dir: []const u8, comp: []const u8) ![]const u8 {
 	}
 }
 
-/// Execute ln utility per IEEE Std 1003.1-2024.
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
 	_ = allocator;
 

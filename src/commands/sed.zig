@@ -1,20 +1,9 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `sed`.
+//! Edit a stream of text using a script. Read standard input if no file is given.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `sed`
-//!   - SYNOPSIS:
-//!       sed [-En] script [file...]
-//!       sed [-En] -e script [-e script]... [-f script_file]... [file...]
-//!   - OPTIONS:
-//!       -E: Use Extended Regular Expressions (ERE) instead of BRE.
-//!       -n: Suppress default output of pattern space.
-//!       -e script: Append script commands.
-//!       -f script_file: Read script commands from file.
-//!   - EDITING COMMANDS:
-//!       { }, a, b, c, d, D, g, G, h, H, i, l, n, N, p, P, q, r, s, t, w, x, y, :, =, #
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
+//! - `-E`: Use extended instead of basic regular expressions.
+//! - `-n`: Disable automatic printing of the pattern space.
+//! - `-e script`: Append inline editing commands; repeatable.
+//! - `-f file`: Append editing commands from a file; repeatable.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

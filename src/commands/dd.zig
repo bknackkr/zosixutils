@@ -1,4 +1,15 @@
-//! POSIX.1-2024 base dd, with ASCII case conversion in the C locale.
+//! Copy data in blocks, optionally converting it. Options use `key=value` syntax.
+//!
+//! - `if=file`, `of=file`: Set the input and output files (default: standard input and output).
+//! - `ibs=size`, `obs=size`: Set the input and output block sizes (default: 512 bytes).
+//! - `bs=size`: Set both block sizes, overriding `ibs` and `obs`.
+//! - `cbs=size`: Set the record size for `block` and `unblock` conversions.
+//! - `skip=n`, `seek=n`: Skip input blocks or start writing at an output block offset.
+//! - `count=n`: Copy at most this many input blocks.
+//! - `iflags=fullblock`: Accumulate short reads into full input blocks.
+//! - `conv=list`: Apply comma-separated conversions: `block`, `unblock`, `lcase`,
+//!   `ucase`, `swab`, `noerror`, `notrunc`, or `sync`.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const linux = std.os.linux;

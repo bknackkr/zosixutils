@@ -1,19 +1,8 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `pwd`.
+//! Print the absolute path of the current directory.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `pwd`
-//!   - SYNOPSIS: `pwd [-L|-P]`
-//!   - DESCRIPTION: Writes an absolute pathname of current working directory,
-//!     without dot or dot-dot components.
-//!   - OPTIONS:
-//!     -L: Logical mode (default). If PWD environment variable contains an
-//!         absolute pathname without '.' or '..' and refers to current directory,
-//!         write PWD. Otherwise behave as -P.
-//!     -P: Physical mode. Written pathname does not contain symbolic link components.
-//!         Single leading slash preferred over multiple slashes.
-//!   - STDOUT: "%s\n", <directory pathname>
-//!   - STDERR: Used only for diagnostic messages.
-//!   - EXIT STATUS: 0 on success, >0 on error.
+//! - `-L`: Use `PWD` if it is absolute, has no `.` or `..` components, and names the current directory;
+//!   otherwise use `-P` behavior. This is the default.
+//! - `-P`: Print the physical path without symlink components.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

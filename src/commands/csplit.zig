@@ -1,24 +1,11 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `csplit`.
+//! Split a file (or `-` for standard input) at line numbers or pattern matches.
+//! Use `/pattern/` to split or `%pattern%` to skip a section, optionally with a signed line offset.
+//! Use `{n}` to repeat the previous split pattern.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `csplit`
-//!   - SYNOPSIS:
-//!       csplit [-ks] [-f prefix] [-n number] file arg...
-//!   - OPTIONS:
-//!       -f prefix: Name created files prefix00, prefix01, ... (default: xx).
-//!       -n number: Number of decimal digits for suffix (default: 2).
-//!       -k: Leave previously created files intact on error.
-//!       -s: Suppress writing of file size messages to stdout.
-//!   - OPERANDS:
-//!       file: Path of text file to split ('-' for standard input).
-//!       arg: Split pattern operands:
-//!            /rexp/[offset] : Split up to line matching BRE +/- offset.
-//!            %rexp%[offset] : Same, but skip section (no file created).
-//!            line_no        : Split up to line number (1-based).
-//!            {num}          : Repeat preceding pattern num times.
-//!   - EXIT STATUS:
-//!       0: Successful completion.
-//!       >0: An error occurred.
+//! - `-f prefix`: Set the output filename prefix (default: `xx`).
+//! - `-n digits`: Set the number of digits in output filenames (default: `2`).
+//! - `-k`: Keep output files if an error occurs.
+//! - `-s`: Do not print output file sizes.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");

@@ -1,20 +1,9 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `mv`.
+//! Move or rename files and directories. Multiple sources require a destination directory.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `mv`
-//!   - SYNOPSIS:
-//!       mv [-if] source_file target_file
-//!       mv [-if] source_file... target_dir
-//!   - OPTIONS:
-//!       -f: Do not prompt for confirmation if destination path exists. Overrides -i.
-//!       -i: Prompt for confirmation if destination path exists. Overrides -f.
-//!   - OPERANDS:
-//!       source_file: A pathname of a file or directory to be moved.
-//!       target_file: A new pathname for the file or directory being moved.
-//!       target_dir: A pathname of an existing directory.
-//!   - EXIT STATUS:
-//!       0: All requested files were successfully moved.
-//!       >0: An error occurred.
+//! - `-f`: Do not prompt before replacing an existing destination.
+//! - `-i`: Prompt before replacing an existing destination.
+//!
+//! If both flags are given, the last one wins.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
@@ -348,7 +337,6 @@ pub fn moveNode(io: std.Io, src: []const u8, dest: []const u8, opts: MvOptions) 
 	return true;
 }
 
-/// Execute mv utility per IEEE Std 1003.1-2024.
 pub fn run(allocator: std.mem.Allocator, args: []const [:0]const u8) u8 {
 	_ = allocator;
 	const io = std.Io.Threaded.global_single_threaded.io();

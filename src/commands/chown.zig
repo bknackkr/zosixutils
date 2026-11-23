@@ -1,14 +1,7 @@
-//! POSIX.1-2024 (IEEE Std 1003.1-2024) compliant implementation of `chown`.
+//! Change file ownership using `owner[:group]`, with names or numeric IDs.
 //!
-//! Specification References:
-//! - IEEE Std 1003.1-2024, Shell & Utilities (XCU), Section: `chown`
-//!   - SYNOPSIS: `chown [-h] [-R [-H|-L|-P]] owner[:group] file...`
-//!   - OPTIONS:
-//!       -h: If the file is a symbolic link, change the user ID of the link itself.
-//!       -R: Recursively change file user IDs.
-//!   - OPERANDS:
-//!       owner[:group]: A user ID and optional group ID.
-//!       file: A pathname of a file whose user ID is to be modified.
+//! - `-h`: Change symlinks themselves rather than their targets.
+//! - `-R`: Recurse into directories without following symlinks encountered inside them.
 
 const std = @import("std");
 const common_args = @import("../common/args.zig");
