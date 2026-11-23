@@ -35,6 +35,15 @@ pub fn report(cmd: []const u8, context: ?[]const u8, err: anyerror) void {
 		error.OperationUnsupported => "Operation not supported",
 		error.DiskQuota => "Disk quota exceeded",
 		error.HardwareFailure => "Input/output error",
+		error.BadFileDescriptor => "Bad file descriptor",
+		error.StatxUnavailable => "Linux statx is unavailable",
+		error.StatxMetadataUnavailable => "statx did not return the required metadata",
+		error.DirectoryChangedDuringTraversal => "Directory changed during traversal",
+		error.MountIdNotInMountInfo => "Mount ID not found in /proc/self/mountinfo",
+		error.NewlineInName => "Cannot report a name containing a newline",
+		error.SameInputAndOutputFile => "Input and output are the same regular file",
+		error.InputDidNotAdvance => "Could not advance input past the read error",
+		error.OutputSeekRequiresReadableStream => "Cannot seek on this output stream",
 		error.BadPathName => "Invalid argument",
 		error.NetworkNotFound => "No such host or network path",
 		error.FileSystem => "File system error",
@@ -76,4 +85,3 @@ test "error: report execution" {
 	report("test_cmd", "test_context", error.FileNotFound);
 	report("test_cmd", null, error.AccessDenied);
 }
-

@@ -84,11 +84,11 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `csplit`    | ✅         |
 | `cut`       | ✅         |
 | `date`      | ❌         |
-| `dd`        | ❌         |
-| `df`        | ❌         |
+| `dd`        | ✅         |
+| `df`        | ✅         |
 | `diff`      | ❌         |
 | `dirname`   | ✅         |
-| `du`        | ❌         |
+| `du`        | ✅         |
 | `echo`      | ✅         |
 | `ed`        | ❌         |
 | `env`       | ❌         |

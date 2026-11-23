@@ -18,7 +18,10 @@ pub const commands = struct {
 	pub const cp = @import("commands/cp.zig");
 	pub const csplit = @import("commands/csplit.zig");
 	pub const cut = @import("commands/cut.zig");
+	pub const dd = @import("commands/dd.zig");
+	pub const df = @import("commands/df.zig");
 	pub const dirname = @import("commands/dirname.zig");
+	pub const du = @import("commands/du.zig");
 	pub const echo = @import("commands/echo.zig");
 	pub const @"false" = @import("commands/false.zig");
 	pub const grep = @import("commands/grep.zig");
@@ -47,6 +50,7 @@ pub const common = struct {
 	pub const mode = @import("common/mode.zig");
 	pub const priority = @import("common/priority.zig");
 	pub const regex = @import("common/regex.zig");
+	pub const statx = @import("common/statx.zig");
 	pub const user = @import("common/user.zig");
 };
 
@@ -99,9 +103,24 @@ pub const applets = [_]Applet{
 		.description = "cut out selected fields of each line of a file",
 	},
 	.{
+		.name = "dd",
+		.run = commands.dd.run,
+		.description = "convert and copy a file",
+	},
+	.{
+		.name = "df",
+		.run = commands.df.run,
+		.description = "report free file system space",
+	},
+	.{
 		.name = "dirname",
 		.run = commands.dirname.run,
 		.description = "return directory portion of a pathname",
+	},
+	.{
+		.name = "du",
+		.run = commands.du.run,
+		.description = "estimate allocated file space",
 	},
 	.{
 		.name = "echo",
@@ -334,7 +353,10 @@ test "findApplet lookup" {
 	try std.testing.expect(findApplet("cp") != null);
 	try std.testing.expect(findApplet("csplit") != null);
 	try std.testing.expect(findApplet("cut") != null);
+	try std.testing.expect(findApplet("dd") != null);
+	try std.testing.expect(findApplet("df") != null);
 	try std.testing.expect(findApplet("dirname") != null);
+	try std.testing.expect(findApplet("du") != null);
 	try std.testing.expect(findApplet("echo") != null);
 	try std.testing.expect(findApplet("false") != null);
 	try std.testing.expect(findApplet("grep") != null);
