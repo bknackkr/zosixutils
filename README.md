@@ -56,6 +56,10 @@ zig build -Dtarget=aarch64-linux-musl -Doptimize=small
 zig build -Dtarget=arm-linux-musleabihf -Doptimize=small
 ```
 
+## Usage
+
+See [USAGE.md](USAGE.md) for invocation examples, applet flags, and the supported shell subset.
+
 ## AI transparency statement
 I believe it is important for any user of this program to be aware that a non-trivial amount of code in this repository was written by generative AI. It is also important to clarify that code, and only code, was generated this way. All statements, opinions, and images are my own and I am opposed to the use of generative AI for the purposes of image generation and creative/informative writing. Yes, I know I'm a hypocrite. Thank you for reading.
 
@@ -63,7 +67,7 @@ I believe it is important for any user of this program to be aware that a non-tr
 ### POSIX Mandatory Commands
 | Command     | Complete? |
 | -------------| -----------|
-| `alias`     | ❌         |
+| `alias`     | Shell builtin |
 | `ar`        | ❌         |
 | `at`        | ❌         |
 | `awk`       | ✅         |
@@ -71,14 +75,14 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `batch`     | ❌         |
 | `bc`        | ❌         |
 | `cat`       | ✅         |
-| `cd`        | ❌         |
+| `cd`        | Shell builtin |
 | `chgrp`     | ❌         |
 | `chmod`     | ✅         |
 | `chown`     | ✅         |
 | `cksum`     | ❌         |
 | `cmp`       | ❌         |
 | `comm`      | ❌         |
-| `command`   | ❌         |
+| `command`   | Shell builtin |
 | `cp`        | ✅         |
 | `cron`      | ❌         |
 | `csplit`    | ✅         |
@@ -137,14 +141,14 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `printf`    | ❌         |
 | `ps`        | ❌         |
 | `pwd`       | ✅         |
-| `read`      | ❌         |
+| `read`      | Shell builtin |
 | `readlink`  | ✅         |
 | `realpath`  | ❌         |
 | `renice`    | ✅         |
 | `rm`        | ✅         |
 | `rmdir`     | ✅         |
 | `sed`       | ✅         |
-| `sh`        | ❌         |
+| `sh`        | [Subset](USAGE.md#sh) |
 | `sleep`     | ✅         |
 | `sort`      | ❌         |
 | `split`     | ❌         |
@@ -163,7 +167,7 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `tsort`     | ❌         |
 | `tty`       | ❌         |
 | `umask`     | ❌         |
-| `unalias`   | ❌         |
+| `unalias`   | Shell builtin |
 | `uname`     | ✅         |
 | `unexpand`  | ❌         |
 | `uniq`      | ❌         |

@@ -32,6 +32,7 @@ pub const commands = struct {
 	pub const rm = @import("commands/rm.zig");
 	pub const rmdir = @import("commands/rmdir.zig");
 	pub const sed = @import("commands/sed.zig");
+	pub const sh = @import("commands/sh.zig");
 	pub const sleep = @import("commands/sleep.zig");
 	pub const @"true" = @import("commands/true.zig");
 	pub const uname = @import("commands/uname.zig");
@@ -197,6 +198,11 @@ pub const applets = [_]Applet{
 		.description = "stream editor",
 	},
 	.{
+		.name = "sh",
+		.run = commands.sh.run,
+		.description = "interpret a POSIX shell subset",
+	},
+	.{
 		.name = "sleep",
 		.run = commands.sleep.run,
 		.description = "suspend execution for an interval",
@@ -279,50 +285,42 @@ pub fn printUnknownApplet(io: std.Io, applet_name: []const u8) void {
 	printUsage(io, true);
 }
 
-pub fn main(init: std.process.Init) u8 {
-	const io = init.io;
-	const allocator = init.arena.allocator();
-
-	const all_args = init.minimal.args.toSlice(allocator) catch |err| {
+pub fn main(init: std.process.Init.Minimal) u8 {
+	var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+	defer arena.deinit();
+	const allocator = arena.allocator();
+	const all_args = init.args.toSlice(allocator) catch |err| {
 		@import("common/error.zig").report("zosixutils", null, err);
 		return 1;
 	};
 
-	if (all_args.len == 0) {
-		printUsage(io, true);
-		return 1;
+	const invocation_name = if (all_args.len != 0) getBaseName(all_args[0]) else "zosixutils";
+	const multicall = std.mem.eql(u8, invocation_name, "zosixutils");
+	const applet_name = if (!multicall) invocation_name else if (all_args.len >= 2) all_args[1] else null;
+	const applet = if (applet_name) |name| findApplet(name) else null;
+	const operands = all_args[@min(all_args.len, @as(usize, if (multicall) 2 else 1))..];
+	const gpa = std.heap.smp_allocator;
+	if (applet) |entry| {
+		if (entry.run == &commands.sh.run) {
+			// The shell runs before Threaded changes inherited signal dispositions.
+			return commands.sh.launch(gpa, if (multicall) "sh" else all_args[0], operands, init.environ.block.slice.ptr);
+		}
 	}
 
-	const invocation_name = getBaseName(all_args[0]);
-
-	if (std.mem.eql(u8, invocation_name, "zosixutils")) {
-		// Multicall router mode
-		if (all_args.len < 2) {
-			printUsage(io, true);
-			return 1;
-		}
-
-		const applet_name = all_args[1];
-		if (std.mem.eql(u8, applet_name, "--help") or std.mem.eql(u8, applet_name, "-h")) {
+	var threaded: std.Io.Threaded = .init(gpa, .{ .argv0 = .init(init.args), .environ = init.environ });
+	defer threaded.deinit();
+	const io = threaded.io();
+	if (applet_name) |name| {
+		if (multicall and (std.mem.eql(u8, name, "--help") or std.mem.eql(u8, name, "-h"))) {
 			printUsage(io, false);
 			return 0;
 		}
-
-		if (findApplet(applet_name)) |applet| {
-			return applet.run(allocator, all_args[2..]);
-		} else {
-			printUnknownApplet(io, applet_name);
-			return 1;
-		}
+		if (applet) |entry| return entry.run(allocator, operands);
+		printUnknownApplet(io, name);
 	} else {
-		// Direct / symlinked applet mode
-		if (findApplet(invocation_name)) |applet| {
-			return applet.run(allocator, all_args[1..]);
-		} else {
-			printUnknownApplet(io, invocation_name);
-			return 1;
-		}
+		printUsage(io, true);
 	}
+	return 1;
 }
 
 // ============================================================================
@@ -367,13 +365,22 @@ test "findApplet lookup" {
 	try std.testing.expect(findApplet("rm") != null);
 	try std.testing.expect(findApplet("rmdir") != null);
 	try std.testing.expect(findApplet("sed") != null);
+	try std.testing.expect(findApplet("sh") != null);
 	try std.testing.expect(findApplet("sleep") != null);
 	try std.testing.expect(findApplet("true") != null);
 	try std.testing.expect(findApplet("uname") != null);
+	try std.testing.expect(findApplet("alias") == null);
 	try std.testing.expect(findApplet("nonexistent") == null);
 }
 
 test {
+	_ = @import("commands/alias.zig");
+	_ = @import("shell/builtins.zig");
+	_ = @import("shell/expand.zig");
+	_ = @import("shell/process.zig");
+	_ = @import("shell/redirection.zig");
+	_ = @import("shell/runtime.zig");
+	_ = @import("shell/syntax.zig");
 	std.testing.refAllDecls(common);
 	std.testing.refAllDecls(commands);
 }
