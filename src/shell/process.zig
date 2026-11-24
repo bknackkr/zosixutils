@@ -6,11 +6,24 @@ pub const Pid = linux.pid_t;
 pub const Vector = [*:null]const ?[*:0]const u8;
 
 pub fn fork(signals: *const Signals) !Pid {
+    return forkWithSignals(signals, false);
+}
+
+pub fn forkAsync(signals: *const Signals) !Pid {
+    return forkWithSignals(signals, true);
+}
+
+fn forkWithSignals(signals: *const Signals, asynchronous: bool) !Pid {
     var old: linux.sigset_t = undefined;
     if (linux.errno(linux.sigprocmask(linux.SIG.BLOCK, &signalMask(), &old)) != .SUCCESS)
         return error.SignalMask;
     const rc = linux.fork();
-    if (rc == 0) signals.restoreChild();
+    if (rc == 0) {
+        signals.restoreChild();
+        interrupted = 0;
+        child_changed = 0;
+        if (asynchronous) ignoreAsync();
+    }
     if (linux.errno(linux.sigprocmask(linux.SIG.SETMASK, &old, null)) != .SUCCESS and rc == 0)
         linux.exit(125);
     if (linux.errno(rc) != .SUCCESS) return error.ForkFailed;
@@ -27,10 +40,27 @@ pub fn wait(pid: Pid) !u8 {
         switch (linux.errno(linux.waitpid(pid, &raw, 0))) {
             .INTR => continue,
             .SUCCESS => {
-                const status: u32 = @bitCast(raw);
-                if (linux.W.IFEXITED(status)) return linux.W.EXITSTATUS(status);
-                if (linux.W.IFSIGNALED(status)) return 128 + @as(u8, @intCast(@backingInt(linux.W.TERMSIG(status))));
+                if (decodeStatus(raw)) |status| return status;
             },
+            else => return error.WaitFailed,
+        }
+    }
+}
+
+fn decodeStatus(raw: i32) ?u8 {
+    const status: u32 = @bitCast(raw);
+    if (linux.W.IFEXITED(status)) return linux.W.EXITSTATUS(status);
+    if (linux.W.IFSIGNALED(status)) return 128 + @as(u8, @intCast(@backingInt(linux.W.TERMSIG(status))));
+    return null;
+}
+
+pub fn collect(pid: Pid) !?u8 {
+    while (true) {
+        var raw: i32 = undefined;
+        const rc = linux.waitpid(pid, &raw, linux.W.NOHANG);
+        switch (linux.errno(rc)) {
+            .INTR => continue,
+            .SUCCESS => return if (rc == 0) null else decodeStatus(raw),
             else => return error.WaitFailed,
         }
     }
@@ -153,10 +183,22 @@ pub fn rewind(fd: Fd) !void {
 
 const changed_signals = [_]linux.SIG{ .INT, .QUIT, .TERM, .CHLD };
 var interrupted: u8 = 0;
+var child_changed: u8 = 0;
 
 fn handleInterrupt(_: linux.SIG) callconv(.c) void {
     const flag: *volatile u8 = &interrupted;
     flag.* = 1;
+}
+
+fn handleChild(_: linux.SIG) callconv(.c) void {
+    const flag: *volatile u8 = &child_changed;
+    flag.* = 1;
+}
+
+fn ignoreAsync() void {
+    const action: linux.Sigaction = .{ .handler = .{ .handler = linux.SIG.IGN }, .flags = 0, .mask = linux.sigemptyset() };
+    for ([_]linux.SIG{ .INT, .QUIT }) |sig|
+        if (linux.errno(linux.sigaction(sig, &action, null)) != .SUCCESS) linux.exit(125);
 }
 
 pub fn takeInterrupt() bool {
@@ -207,6 +249,14 @@ pub const Signals = struct {
             };
     }
 
+    pub fn asyncCopy(self: *const Signals) Signals {
+        var result = self.*;
+        for (changed_signals, 0..) |sig, i| {
+            if (sig == .INT or sig == .QUIT) result.changed[i] = false;
+        }
+        return result;
+    }
+
     pub fn exec(self: *const Signals, path: [:0]const u8, argv: Vector, envp: Vector, replace_interactive: bool) linux.E {
         for (changed_signals, self.changed, &self.original) |sig, changed, *action| {
             if (changed and (sig == .CHLD or replace_interactive)) _ = linux.sigaction(sig, action, null);
@@ -223,7 +273,7 @@ fn installHandler(sig: linux.SIG) !void {
     const handler: ?linux.Sigaction.handler_fn = switch (sig) {
         .INT => handleInterrupt,
         .QUIT, .TERM => linux.SIG.IGN,
-        .CHLD => linux.SIG.DFL,
+        .CHLD => handleChild,
         else => unreachable,
     };
     const action: linux.Sigaction = .{ .handler = .{ .handler = handler }, .flags = 0, .mask = linux.sigemptyset() };
@@ -238,12 +288,20 @@ pub fn terminal(fd: Fd) bool {
 pub fn interactiveRead(fd: Fd, buf: []u8) !usize {
     var blocked = linux.sigemptyset();
     linux.sigaddset(&blocked, .INT);
+    linux.sigaddset(&blocked, .CHLD);
     var old: linux.sigset_t = undefined;
     if (linux.errno(linux.sigprocmask(linux.SIG.BLOCK, &blocked, &old)) != .SUCCESS) return error.SignalMask;
     defer _ = linux.sigprocmask(linux.SIG.SETMASK, &old, null);
+    var wake = old;
+    linux.sigdelset(&wake, .CHLD);
     var pfd: linux.pollfd = .{ .fd = fd, .events = linux.POLL.IN, .revents = 0 };
     while (!isInterrupted()) {
-        switch (linux.errno(linux.ppoll(@ptrCast(&pfd), 1, null, &old))) {
+        const flag: *volatile u8 = &child_changed;
+        if (flag.* != 0) {
+            flag.* = 0;
+            return error.ChildChanged;
+        }
+        switch (linux.errno(linux.ppoll(@ptrCast(&pfd), 1, null, &wake))) {
             .SUCCESS => {
                 // A terminal can flush readable input on SIGINT after ppoll returns.
                 // Do not enter a blocking read with that signal masked.
@@ -262,6 +320,30 @@ pub fn interactiveRead(fd: Fd, buf: []u8) !usize {
         }
     }
     return error.Interrupted;
+}
+
+pub fn blockChildSignals() !linux.sigset_t {
+    var blocked = linux.sigemptyset();
+    linux.sigaddset(&blocked, .INT);
+    linux.sigaddset(&blocked, .CHLD);
+    var old: linux.sigset_t = undefined;
+    if (linux.errno(linux.sigprocmask(linux.SIG.BLOCK, &blocked, &old)) != .SUCCESS) return error.SignalMask;
+    return old;
+}
+
+pub fn restoreMask(old: *const linux.sigset_t) void {
+    _ = linux.sigprocmask(linux.SIG.SETMASK, old, null);
+}
+
+pub fn waitEvent(old: *const linux.sigset_t) !void {
+    // An inherited SIGCHLD mask must not prevent the shell's own wakeup.
+    var wake = old.*;
+    linux.sigdelset(&wake, .CHLD);
+    var unused: [0]linux.pollfd = .{};
+    switch (linux.errno(linux.ppoll(&unused, 0, null, &wake))) {
+        .INTR, .SUCCESS => {},
+        else => return error.WaitFailed,
+    }
 }
 
 pub fn normalizeInput(fd: Fd) void {

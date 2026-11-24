@@ -140,7 +140,6 @@ fn expand(ctx: anytype, a: Allocator, raw: []const u8, mode: Mode, inherited_quo
             continue;
         }
         const next = raw[i + 1];
-        if (next == '!') return error.Unsupported;
         if (next == '(') {
             const end = i + 1 + try syntax.substitutionEnd(a, raw[i + 2 ..]);
             const result = try ctx.substitute(a, raw[i + 2 .. end]);
@@ -157,7 +156,7 @@ fn expand(ctx: anytype, a: Allocator, raw: []const u8, mode: Mode, inherited_quo
             const body = raw[i + 2 .. end];
             if (body.len == 0) return error.BadExpansion;
             var n: usize = 0;
-            if (body[0] == '#' and body.len > 1 and body[1] != '}' and (isNameStart(body[1]) or std.ascii.isDigit(body[1]) or std.mem.indexOfScalar(u8, "@*?#$-", body[1]) != null)) {
+            if (body[0] == '#' and body.len > 1 and body[1] != '}' and (isNameStart(body[1]) or std.ascii.isDigit(body[1]) or std.mem.indexOfScalar(u8, "@*?#$!-", body[1]) != null)) {
                 n = 1;
                 if (isNameStart(body[n])) {
                     n += 1;
@@ -178,7 +177,7 @@ fn expand(ctx: anytype, a: Allocator, raw: []const u8, mode: Mode, inherited_quo
                 while (n < body.len and isName(body[n])) : (n += 1) {}
             } else if (std.ascii.isDigit(body[0])) {
                 while (n < body.len and std.ascii.isDigit(body[n])) : (n += 1) {}
-            } else if (std.mem.indexOfScalar(u8, "@*?#$-", body[0]) != null) n = 1 else return error.BadExpansion;
+            } else if (std.mem.indexOfScalar(u8, "@*?#$!-", body[0]) != null) n = 1 else return error.BadExpansion;
             name = body[0..n];
             if (n < body.len) {
                 const start = n;
@@ -197,7 +196,7 @@ fn expand(ctx: anytype, a: Allocator, raw: []const u8, mode: Mode, inherited_quo
             if (isNameStart(next)) {
                 n += 1;
                 while (n < raw.len and isName(raw[n])) : (n += 1) {}
-            } else if (std.ascii.isDigit(next) or std.mem.indexOfScalar(u8, "@*?#$-", next) != null) n += 1 else {
+            } else if (std.ascii.isDigit(next) or std.mem.indexOfScalar(u8, "@*?#$!-", next) != null) n += 1 else {
                 try append(a, &fields.items[fields.items.len - 1], "$", false, quoted);
                 i += 1;
                 continue;

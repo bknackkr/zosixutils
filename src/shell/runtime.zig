@@ -39,6 +39,8 @@ const Function = struct {
     body: *const Node,
 };
 
+const Child = struct { pid: proc.Pid, status: ?u8 = null, completed: u64 = 0 };
+
 const Source = struct {
     rt: *Runtime,
     input: union(enum) { text: []const u8, shared, private: *redir.Hidden },
@@ -58,7 +60,15 @@ const Source = struct {
             },
             .private => |fd| blk: {
                 if (self.start == self.end) {
-                    self.end = try proc.read(fd.fd, &self.buffer);
+                    self.end = read_input: {
+                        while (true) break :read_input proc.interactiveRead(fd.fd, &self.buffer) catch |err| switch (err) {
+                            error.ChildChanged => {
+                                self.rt.collectChildren();
+                                continue;
+                            },
+                            else => return err,
+                        };
+                    };
                     self.start = 0;
                     if (self.end == 0) break :blk null;
                 }
@@ -72,7 +82,15 @@ const Source = struct {
                     self.rt.printPrompt(self.prompt == .primary);
                     self.prompt = .none;
                 }
-                const n = if (self.rt.interactive) try proc.interactiveRead(0, &c) else try proc.read(0, &c);
+                const n = read_input: {
+                    while (true) break :read_input proc.interactiveRead(0, &c) catch |err| switch (err) {
+                        error.ChildChanged => {
+                            self.rt.collectChildren();
+                            continue;
+                        },
+                        else => return err,
+                    };
+                };
                 if (n == 0) break :blk null;
                 if (self.rt.interactive and c[0] == '\n') self.prompt = .secondary;
                 break :blk c[0];
@@ -90,6 +108,10 @@ pub const Runtime = struct {
     zero: []const u8,
     pid: proc.Pid,
     last_status: u8 = 0,
+    last_async: ?proc.Pid = null,
+    children: std.ArrayList(Child) = .empty,
+    completed_serial: u64 = 0,
+    direct_exec: bool = false,
     substitution_status: ?u8 = null,
     no_glob: bool = false,
     interactive: bool = false,
@@ -135,6 +157,7 @@ pub const Runtime = struct {
             self.allocator.free(entry.key_ptr.*);
         }
         self.functions.deinit();
+        self.children.deinit(self.allocator);
     }
 
     fn freeVariable(self: *Runtime, name: []const u8, v: Variable) void {
@@ -178,6 +201,7 @@ pub const Runtime = struct {
         if (eq(u8, name, "#")) return std.fmt.bufPrint(&self.parameter_buf, "{d}", .{self.pos.len}) catch unreachable;
         if (eq(u8, name, "?")) return std.fmt.bufPrint(&self.parameter_buf, "{d}", .{self.last_status}) catch unreachable;
         if (eq(u8, name, "$")) return std.fmt.bufPrint(&self.parameter_buf, "{d}", .{self.pid}) catch unreachable;
+        if (eq(u8, name, "!")) return if (self.last_async) |pid| std.fmt.bufPrint(&self.parameter_buf, "{d}", .{pid}) catch unreachable else null;
         if (name.len != 0 and std.ascii.isDigit(name[0])) {
             const i = std.fmt.parseInt(usize, name, 10) catch return null;
             if (i == 0) return self.zero;
@@ -260,7 +284,7 @@ pub const Runtime = struct {
         return self.runOpened(path, fd);
     }
 
-    fn runOpened(self: *Runtime, path: []const u8, fd: proc.Fd) anyerror!Outcome {
+    pub fn runOpened(self: *Runtime, path: []const u8, fd: proc.Fd) anyerror!Outcome {
         var item: redir.Hidden = .{ .fd = if (fd > 2) fd else blk: {
             defer proc.close(fd);
             break :blk try proc.save(fd, 3);
@@ -343,7 +367,7 @@ pub const Runtime = struct {
                     while (i < prompt.len and (nameStart(prompt[i]) or std.ascii.isDigit(prompt[i]))) : (i += 1) {}
                     proc.write(2, self.parameter(prompt[first..i]) orelse "") catch return;
                     continue;
-                } else if (std.mem.findScalar(u8, "?$#-0123456789", prompt[i]) != null) {
+                } else if (std.mem.findScalar(u8, "?$#!-0123456789", prompt[i]) != null) {
                     i += 1;
                     proc.write(2, self.parameter(prompt[first..i]) orelse "") catch return;
                     continue;
@@ -391,10 +415,11 @@ pub const Runtime = struct {
             },
             .pipeline => |chain| return self.pipeline(a, chain.stages, chain.negate),
             .group => |body| return self.eval(a, body),
+            .asynchronous => |body| return self.launchAsync(a, body),
             .subshell => |body| {
                 const pid = try proc.fork(self.signals);
                 if (pid == 0) self.child(a, body);
-                return normal(try proc.wait(pid));
+                return normal(try self.waitForeground(pid));
             },
             .conditional => |conditional| {
                 for (conditional.branches) |branch| {
@@ -465,11 +490,12 @@ pub const Runtime = struct {
                 .subshell => |body| {
                     const pid = try proc.fork(self.signals);
                     if (pid == 0) {
+                        self.resetSubshell();
                         self.interactive = false;
                         const result = self.evalRedirected(a, body, wrapped.redirs) catch |err| self.childError(err);
                         linux.exit(result.status);
                     }
-                    return normal(try proc.wait(pid));
+                    return normal(try self.waitForeground(pid));
                 },
                 else => return self.evalRedirected(a, wrapped.node, wrapped.redirs),
             },
@@ -491,9 +517,113 @@ pub const Runtime = struct {
     }
 
     fn child(self: *Runtime, a: Allocator, body: *const Node) noreturn {
+        self.resetSubshell();
         self.interactive = false;
         const result = self.eval(a, body) catch |err| self.childError(err);
         linux.exit(result.status);
+    }
+
+    fn resetSubshell(self: *Runtime) void {
+        self.children.clearRetainingCapacity();
+        self.last_async = null;
+        self.completed_serial = 0;
+        self.direct_exec = false;
+    }
+
+    fn launchAsync(self: *Runtime, a: Allocator, body: *const Node) !Outcome {
+        self.collectChildren();
+        try self.children.ensureUnusedCapacity(self.allocator, 1);
+        const pid = try proc.forkAsync(self.signals);
+        if (pid == 0) {
+            var signals = self.signals.asyncCopy();
+            self.signals = &signals;
+            self.resetSubshell();
+            self.interactive = false;
+            const fd = proc.open("/dev/null", .{}) catch linux.exit(125);
+            proc.install(fd, 0) catch linux.exit(125);
+            self.direct_exec = body.* == .simple;
+            const result = self.eval(a, body) catch |err| self.childError(err);
+            linux.exit(result.status);
+        }
+        var i: usize = 0;
+        while (i < self.children.items.len) {
+            if (self.children.items[i].pid == pid) {
+                _ = self.children.orderedRemove(i);
+            } else i += 1;
+        }
+        self.children.appendAssumeCapacity(.{ .pid = pid });
+        self.last_async = pid;
+        if (self.interactive) {
+            var buffer: [32]u8 = undefined;
+            proc.write(2, std.fmt.bufPrint(&buffer, "{d}\n", .{pid}) catch unreachable) catch {};
+        }
+        return normal(0);
+    }
+
+    pub fn collectChildren(self: *Runtime) void {
+        for (self.children.items) |*entry| {
+            if (entry.status != null) continue;
+            const status = proc.collect(entry.pid) catch 127;
+            if (status) |value| {
+                self.completed_serial +%= 1;
+                entry.status = value;
+                entry.completed = self.completed_serial;
+            }
+        }
+        var limit: linux.rlimit = undefined;
+        const max_saved: u64 = if (linux.errno(linux.getrlimit(.NPROC, &limit)) == .SUCCESS) @max(25, limit.cur) else 25;
+        var count: u64 = 0;
+        for (self.children.items) |entry| if (entry.status != null) {
+            count += 1;
+        };
+        while (count > max_saved) : (count -= 1) {
+            var oldest: ?usize = null;
+            for (self.children.items, 0..) |entry, i| {
+                if (entry.status != null and (oldest == null or entry.completed < self.children.items[oldest.?].completed)) oldest = i;
+            }
+            _ = self.children.orderedRemove(oldest.?);
+        }
+    }
+
+    pub fn waitChild(self: *Runtime, pid: ?proc.Pid) !u8 {
+        const old = try proc.blockChildSignals();
+        defer proc.restoreMask(&old);
+        while (true) {
+            self.collectChildren();
+            if (self.interactive and proc.isInterrupted()) return error.Interrupted;
+            if (pid) |target| {
+                for (self.children.items, 0..) |entry, i| {
+                    if (entry.pid != target) continue;
+                    if (entry.status) |status| {
+                        _ = self.children.orderedRemove(i);
+                        return status;
+                    }
+                    try proc.waitEvent(&old);
+                    break;
+                } else return 127;
+            } else {
+                var running = false;
+                for (self.children.items) |entry| if (entry.status == null) {
+                    running = true;
+                    break;
+                };
+                if (!running) {
+                    self.children.clearRetainingCapacity();
+                    return 0;
+                }
+                try proc.waitEvent(&old);
+            }
+        }
+    }
+
+    fn waitForeground(self: *Runtime, pid: proc.Pid) !u8 {
+        const old = try proc.blockChildSignals();
+        defer proc.restoreMask(&old);
+        while (true) {
+            self.collectChildren();
+            if (try proc.collect(pid)) |status| return status;
+            try proc.waitEvent(&old);
+        }
     }
 
     fn childError(_: *Runtime, err: anyerror) noreturn {
@@ -552,7 +682,7 @@ pub const Runtime = struct {
         gate_open = false;
         var status: u8 = 0;
         var wait_failed = false;
-        for (pids) |pid| status = proc.wait(pid) catch blk: {
+        for (pids) |pid| status = self.waitForeground(pid) catch blk: {
             wait_failed = true;
             break :blk 125;
         };
@@ -571,6 +701,7 @@ pub const Runtime = struct {
         if (pid == 0) {
             proc.close(fds[0]);
             proc.install(fds[1], 1) catch linux.exit(125);
+            self.resetSubshell();
             self.interactive = false;
             const result = self.runText(text) catch linux.exit(2);
             linux.exit(result.status);
@@ -586,11 +717,17 @@ pub const Runtime = struct {
         errdefer bytes.deinit(a);
         var buf: [4096]u8 = undefined;
         while (true) {
-            const n = try proc.read(fds[0], &buf);
+            const n = proc.interactiveRead(fds[0], &buf) catch |err| switch (err) {
+                error.ChildChanged => {
+                    self.collectChildren();
+                    continue;
+                },
+                else => return err,
+            };
             if (n == 0) break;
             try bytes.appendSlice(a, buf[0..n]);
         }
-        self.substitution_status = try proc.wait(pid);
+        self.substitution_status = try self.waitForeground(pid);
         waited = true;
         bytes.items.len = std.mem.trimEnd(u8, bytes.items, "\n").len;
         return bytes.toOwnedSlice(a);
@@ -706,6 +843,7 @@ pub const Runtime = struct {
         const target = if (replace) try self.search(a, args[0], use_default, true) else try self.lookup(a, args[0], bypass, use_default);
         switch (target) {
             .builtin => |kind| {
+                self.direct_exec = false;
                 const result = builtins.run(self, a, kind, args[1..]) catch |err| {
                     if (err == error.Interrupted) return normal(130);
                     if (err != error.ExpansionError) diagnose(args[0], null, reason(err));
@@ -715,6 +853,7 @@ pub const Runtime = struct {
                 return result;
             },
             .function => {
+                self.direct_exec = false;
                 // The running function may unset or redefine itself.
                 const body = try cloneAst(a, self.functions.get(args[0]).?.body);
                 const old = self.pos;
@@ -733,13 +872,13 @@ pub const Runtime = struct {
                 const argv = try a.allocSentinel(?[*:0]const u8, args.len, null);
                 for (args, argv) |arg, *ptr| ptr.* = arg.ptr;
                 const envp = try self.environment(a);
-                if (replace) {
+                if (replace or self.direct_exec) {
                     const status = self.execExternal(a, path, args, argv, envp, true);
                     return normal(status);
                 }
                 const pid = try proc.fork(self.signals);
                 if (pid == 0) linux.exit(self.execExternal(a, path, args, argv, envp, false));
-                return normal(try proc.wait(pid));
+                return normal(try self.waitForeground(pid));
             },
             .missing, .inaccessible => {
                 diagnose("sh", args[0], if (target == .missing) "not found" else "cannot execute");

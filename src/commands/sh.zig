@@ -68,6 +68,43 @@ pub fn launch(allocator: Allocator, name: [:0]const u8, args: []const [:0]const 
     };
 }
 
+/// Interpret an already-open executable text file, taking ownership of its FD.
+pub fn launchOpened(allocator: Allocator, path: [:0]const u8, args: []const [:0]const u8, envp: process.Vector, fd: process.Fd) !u8 {
+    var opened = true;
+    defer if (opened) process.close(fd);
+    const signals = try process.Signals.init(false);
+    defer signals.deinit();
+    const positionals = try shell.operands(allocator, args);
+    defer allocator.free(positionals);
+    var runtime = try shell.Runtime.init(allocator, path, positionals, envp, &signals);
+    defer runtime.deinit();
+    opened = false;
+    const result = runtime.runOpened(path, fd) catch |err| {
+        shell.diagnose("sh", path, shell.reason(err));
+        return 2;
+    };
+    return result.status;
+}
+
+// The runner passes a verified script on fd 3, independent of the job's stdin.
+pub fn launchScheduled(allocator: Allocator, args: []const [:0]const u8, envp: process.Vector) u8 {
+    const linux = process.linux;
+    const fd: process.Fd = 3;
+    var stat: linux.Statx = undefined;
+    if (args.len != 2 or !std.mem.eql(u8, args[0], "3") or
+        linux.errno(linux.fcntl(fd, linux.F.SETFD, linux.FD_CLOEXEC)) != .SUCCESS or
+        linux.errno(linux.statx(fd, "", linux.AT.EMPTY_PATH, .{ .TYPE = true }, &stat)) != .SUCCESS or
+        !stat.mask.TYPE or !linux.S.ISREG(stat.mode))
+    {
+        shell.diagnose("sh", null, "invalid scheduled script descriptor");
+        return 125;
+    }
+    return launchOpened(allocator, args[1], &.{}, envp, fd) catch |err| {
+        shell.diagnose("sh", args[1], shell.reason(err));
+        return 125;
+    };
+}
+
 fn launchShell(allocator: Allocator, name: [:0]const u8, args: []const [:0]const u8, envp: process.Vector) !u8 {
     const invocation = try Invocation.parse(name, args);
     const interactive = invocation.interactive or (invocation.source == .stdin and process.terminal(0) and process.terminal(2));

@@ -69,10 +69,10 @@ I believe it is important for any user of this program to be aware that a non-tr
 | -------------| -----------|
 | `alias`     | Shell builtin |
 | `ar`        | ❌         |
-| `at`        | ❌         |
+| `at`        | [Same-user scheduler](USAGE.md#job-scheduler) |
 | `awk`       | ✅         |
 | `basename`  | ✅         |
-| `batch`     | ❌         |
+| `batch`     | [Same-user scheduler](USAGE.md#job-scheduler) |
 | `bc`        | ❌         |
 | `cat`       | ✅         |
 | `cd`        | Shell builtin |
@@ -112,7 +112,7 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `iconv`     | ❌         |
 | `id`        | ❌         |
 | `join`      | ❌         |
-| `kill`      | ❌         |
+| `kill`      | Applet and shell builtin |
 | `ln`        | ✅         |
 | `locale`    | ❌         |
 | `localedef` | ❌         |
@@ -131,7 +131,7 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `newgrp`    | ❌         |
 | `ngettext`  | ❌         |
 | `nice`      | ✅         |
-| `nohup`     | ❌         |
+| `nohup`     | [Linux applet](USAGE.md#process-utilities) |
 | `od`        | ❌         |
 | `paste`     | ✅         |
 | `patch`     | ❌         |
@@ -139,7 +139,7 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `pax`       | ❌         |
 | `pr`        | ❌         |
 | `printf`    | ❌         |
-| `ps`        | ❌         |
+| `ps`        | [Linux applet](USAGE.md#process-utilities) |
 | `pwd`       | ✅         |
 | `read`      | Shell builtin |
 | `readlink`  | ✅         |
@@ -173,13 +173,14 @@ I believe it is important for any user of this program to be aware that a non-tr
 | `uniq`      | ❌         |
 | `uudecode`  | ❌         |
 | `uuencode`  | ❌         |
-| `wait`      | ❌         |
+| `wait`      | Shell builtin |
 | `wc`        | ❌         |
 | `write`     | ❌         |
 | `xargs`     | ❌         |
 ### Linux Utilities
 | Command | Status |
 | --- | --- |
+| `atd` | [Same-user scheduler](USAGE.md#job-scheduler) |
 | `base64` | ❌ |
 | `chroot` | ❌ |
 | `clear` | ❌ |

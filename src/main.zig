@@ -4,8 +4,11 @@
 const std = @import("std");
 
 pub const commands = struct {
+	pub const at = @import("commands/at.zig");
+	pub const atd = @import("commands/atd.zig");
 	pub const awk = @import("commands/awk.zig");
 	pub const basename = @import("commands/basename.zig");
+	pub const batch = @import("commands/batch.zig");
 	pub const cat = @import("commands/cat.zig");
 	pub const chmod = @import("commands/chmod.zig");
 	pub const chown = @import("commands/chown.zig");
@@ -19,13 +22,16 @@ pub const commands = struct {
 	pub const echo = @import("commands/echo.zig");
 	pub const @"false" = @import("commands/false.zig");
 	pub const grep = @import("commands/grep.zig");
+	pub const kill = @import("commands/kill.zig");
 	pub const ln = @import("commands/ln.zig");
 	pub const logname = @import("commands/logname.zig");
 	pub const ls = @import("commands/ls.zig");
 	pub const mkdir = @import("commands/mkdir.zig");
 	pub const mv = @import("commands/mv.zig");
 	pub const nice = @import("commands/nice.zig");
+	pub const nohup = @import("commands/nohup.zig");
 	pub const paste = @import("commands/paste.zig");
+	pub const ps = @import("commands/ps.zig");
 	pub const pwd = @import("commands/pwd.zig");
 	pub const readlink = @import("commands/readlink.zig");
 	pub const renice = @import("commands/renice.zig");
@@ -58,6 +64,16 @@ pub const Applet = struct {
 /// Built-in applets and their usage descriptions.
 pub const applets = [_]Applet{
 	.{
+		.name = "at",
+		.run = commands.at.run,
+		.description = "execute commands at a later time",
+	},
+	.{
+		.name = "atd",
+		.run = commands.atd.run,
+		.description = "run the same-user at and batch scheduler",
+	},
+	.{
 		.name = "awk",
 		.run = commands.awk.run,
 		.description = "pattern scanning and processing language",
@@ -66,6 +82,11 @@ pub const applets = [_]Applet{
 		.name = "basename",
 		.run = commands.basename.run,
 		.description = "return non-directory portion of a pathname",
+	},
+	.{
+		.name = "batch",
+		.run = commands.batch.run,
+		.description = "execute commands when system load permits",
 	},
 	.{
 		.name = "cat",
@@ -133,6 +154,11 @@ pub const applets = [_]Applet{
 		.description = "search a file for a pattern",
 	},
 	.{
+		.name = "kill",
+		.run = commands.kill.run,
+		.description = "terminate or signal processes",
+	},
+	.{
 		.name = "ln",
 		.run = commands.ln.run,
 		.description = "link files",
@@ -163,9 +189,19 @@ pub const applets = [_]Applet{
 		.description = "invoke a utility with an altered nice value",
 	},
 	.{
+		.name = "nohup",
+		.run = commands.nohup.run,
+		.description = "invoke a utility immune to hangups",
+	},
+	.{
 		.name = "paste",
 		.run = commands.paste.run,
 		.description = "merge corresponding or subsequent lines of files",
+	},
+	.{
+		.name = "ps",
+		.run = commands.ps.run,
+		.description = "report process status",
 	},
 	.{
 		.name = "pwd",
@@ -301,10 +337,17 @@ pub fn main(init: std.process.Init.Minimal) u8 {
 	const operands = all_args[@min(all_args.len, @as(usize, if (multicall) 2 else 1))..];
 	const gpa = std.heap.smp_allocator;
 	if (applet) |entry| {
+		// These applets run before Threaded changes inherited signal dispositions.
+		const envp = init.environ.block.slice.ptr;
 		if (entry.run == &commands.sh.run) {
-			// The shell runs before Threaded changes inherited signal dispositions.
-			return commands.sh.launch(gpa, if (multicall) "sh" else all_args[0], operands, init.environ.block.slice.ptr);
+			if (multicall and operands.len != 0 and std.mem.eql(u8, operands[0], "--zosix-at-source"))
+				return commands.sh.launchScheduled(gpa, operands[1..], envp);
+			return commands.sh.launch(gpa, if (multicall) "sh" else all_args[0], operands, envp);
 		}
+		if (entry.run == &commands.nohup.run) return commands.nohup.launch(gpa, operands, envp);
+		if (entry.run == &commands.at.run) return commands.at.launch(gpa, operands, envp);
+		if (entry.run == &commands.batch.run) return commands.batch.launch(gpa, operands, envp);
+		if (entry.run == &commands.atd.run) return commands.atd.launch(gpa, operands, envp);
 	}
 
 	var threaded: std.Io.Threaded = .init(gpa, .{ .argv0 = .init(init.args), .environ = init.environ });
@@ -337,8 +380,11 @@ test "getBaseName extraction" {
 }
 
 test "findApplet lookup" {
+	try std.testing.expect(findApplet("at") != null);
+	try std.testing.expect(findApplet("atd") != null);
 	try std.testing.expect(findApplet("awk") != null);
 	try std.testing.expect(findApplet("basename") != null);
+	try std.testing.expect(findApplet("batch") != null);
 	try std.testing.expect(findApplet("cat") != null);
 	try std.testing.expect(findApplet("chmod") != null);
 	try std.testing.expect(findApplet("chown") != null);
@@ -352,13 +398,16 @@ test "findApplet lookup" {
 	try std.testing.expect(findApplet("echo") != null);
 	try std.testing.expect(findApplet("false") != null);
 	try std.testing.expect(findApplet("grep") != null);
+	try std.testing.expect(findApplet("kill") != null);
 	try std.testing.expect(findApplet("ln") != null);
 	try std.testing.expect(findApplet("logname") != null);
 	try std.testing.expect(findApplet("ls") != null);
 	try std.testing.expect(findApplet("mkdir") != null);
 	try std.testing.expect(findApplet("mv") != null);
 	try std.testing.expect(findApplet("nice") != null);
+	try std.testing.expect(findApplet("nohup") != null);
 	try std.testing.expect(findApplet("paste") != null);
+	try std.testing.expect(findApplet("ps") != null);
 	try std.testing.expect(findApplet("pwd") != null);
 	try std.testing.expect(findApplet("readlink") != null);
 	try std.testing.expect(findApplet("renice") != null);
@@ -370,11 +419,16 @@ test "findApplet lookup" {
 	try std.testing.expect(findApplet("true") != null);
 	try std.testing.expect(findApplet("uname") != null);
 	try std.testing.expect(findApplet("alias") == null);
+	try std.testing.expect(findApplet("wait") == null);
 	try std.testing.expect(findApplet("nonexistent") == null);
 }
 
 test {
 	_ = @import("commands/alias.zig");
+	_ = @import("commands/wait.zig");
+	_ = @import("common/at_spool.zig");
+	_ = @import("common/at_time.zig");
+	_ = @import("common/at_mail.zig");
 	_ = @import("shell/builtins.zig");
 	_ = @import("shell/expand.zig");
 	_ = @import("shell/process.zig");

@@ -41,6 +41,7 @@ pub const Node = union(enum) {
     pipeline: Pipeline,
     group: *const Node,
     subshell: *const Node,
+    asynchronous: *const Node,
     conditional: Conditional,
     loop: Loop,
     for_loop: ForLoop,
@@ -401,7 +402,7 @@ pub const Parser = struct {
             }
         } else if (c == '$') {
             const n = try self.charPeek();
-            if (n == '!' or (n == '\'' and !in_double)) return self.fail(error.Unsupported);
+            if (n == '\'' and !in_double) return self.fail(error.Unsupported);
             if (n == '(' or n == '{') {
                 _ = try self.charTake();
                 try out.append(self.allocator, n.?);
@@ -411,7 +412,7 @@ pub const Parser = struct {
                     return;
                 }
                 const first = (try self.charPeek()) orelse return self.fail(error.Incomplete);
-                if (std.ascii.isAlphanumeric(first) or std.mem.findScalar(u8, "_@*?#$-", first) != null) {
+                if (std.ascii.isAlphanumeric(first) or std.mem.findScalar(u8, "_@*?#$!-", first) != null) {
                     try out.append(self.allocator, (try self.charTake()).?);
                     if (std.ascii.isAlphanumeric(first) or first == '_') {
                         while (try self.charPeek()) |ch| {
@@ -521,8 +522,11 @@ pub const Parser = struct {
         try nodes.append(self.allocator, try self.andOr());
         while (true) {
             const t = try self.peek();
-            if (t.kind == .amp) return self.fail(error.Unsupported);
-            if (t.kind == .semi) {
+            if (t.kind == .amp) {
+                nodes.items[nodes.items.len - 1] = try self.make(.{ .asynchronous = nodes.items[nodes.items.len - 1] });
+                _ = self.take();
+                if (!top) try self.linebreak();
+            } else if (t.kind == .semi) {
                 _ = self.take();
                 if (!top) try self.linebreak();
             } else if (t.kind == .newline and !top) {
@@ -892,6 +896,21 @@ test "sh: lists compound commands and functions" {
     const c = (try p.next(a)).?;
     try std.testing.expectEqual(@as(usize, 2), c.case.arms.len);
     try std.testing.expectEqual(@as(usize, 2), c.case.arms[0].patterns.len);
+}
+
+test "sh: asynchronous terminates the whole and-or list" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var aliases = alias.Table.init(a);
+    var source = TestInput{ .text = "a && b | c & d; e &\n" };
+    var p = Parser.init(a, source.input(), &aliases);
+    defer p.deinit();
+    const n = (try p.next(a)).?;
+    try std.testing.expectEqual(3, n.sequence.len);
+    try std.testing.expect(n.sequence[0].asynchronous.* == .and_or);
+    try std.testing.expect(n.sequence[0].asynchronous.and_or.rest[0].node.* == .pipeline);
+    try std.testing.expect(n.sequence[2].* == .asynchronous);
 }
 
 test "sh: aliases and replacement cycles" {

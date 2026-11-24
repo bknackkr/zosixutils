@@ -22,13 +22,15 @@ zosixutils sh [-i] [-f | +f] -s [--] [argument ...]
 - `-i` forces interactive mode. When reading commands from stdin, the shell also becomes interactive if both stdin and stderr are terminals. It prints `PS1` and `PS2` to stderr (default `$ ` and `> `) and recovers from Ctrl-C at the prompt or during a foreground pipeline.
 - `-f` disables pathname expansion; `+f` enables it. `--` ends option parsing; a leading `-` in the option position is also consumed as an option terminator.
 
-The shell supports foreground lists and pipelines, grouped commands and subshells, `if`, `case` (including `;&`), loops, and functions. It implements shell variables and positional parameters, quoting, parameter expansion, `$(...)`, field splitting, C-locale globbing, descriptor redirections, and here-documents.
+The shell supports lists and pipelines, grouped commands and subshells, `if`, `case` (including `;&`), loops, and functions. It implements shell variables and positional parameters, quoting, parameter expansion, `$(...)`, field splitting, C-locale globbing, descriptor redirections, and here-documents.
+
+An AND-OR list ending in `&` starts asynchronously with `/dev/null` stdin unless redirected. `$!` is the latest async PID, which identifies a coordinating subshell for a compound list or pipeline. The shell does not implicitly wait at exit.
 
 Commands that are not builtins or functions are found through `PATH` and run externally. To use another ZOSIXutils applet from `sh`, invoke it as `zosixutils <applet>` or put a link named after that applet on `PATH`. Aliases are local to the shell and only affect commands parsed after their definition.
 
 ### Shell Builtins
 
-These commands run inside `sh`; they are not standalone applets.
+These commands run inside `sh`. Only `kill` is also a standalone applet.
 
 | Builtin | Usage |
 | --- | --- |
@@ -41,15 +43,17 @@ These commands run inside `sh`; they are not standalone applets.
 | `exec [--] [command [argument ...]]` | Replace the shell with an external command. With no command, keep the redirections in the current shell. |
 | `exit [status]`, `return [status]` | Exit the shell or return from a function or sourced script. The status defaults to that of the last command. |
 | `export [name[=value] ...]`, `readonly [name[=value] ...]` | Mark variables for export or prevent reassignment, respectively. `-p` or no operands lists marked variables. |
+| `kill` | Send signals. Uses the same syntax as the [standalone applet](#process-utilities). |
 | `read [-r] name ...` | Read a line from stdin and assign fields to variables. `-r` treats backslashes literally. |
 | `set [-f] [+f] [--] [argument ...]` | With no operands, list shell variables. `-f` disables globbing, `+f` enables it, and `set --` replaces positional parameters with the remaining arguments (or clears them). |
 | `shift [n]` | Drop the first `n` positional parameters (default one). |
 | `unalias name ...` | Remove named aliases; `-a` removes all aliases instead. |
 | `unset [-f] [-v] name ...` | Remove names. `-f` removes functions; `-v` removes variables (default). Do not combine them. |
+| `wait [pid ...]` | Wait for direct async children and consume their statuses. With operands, return the last operand's status (`127` for an unknown PID). With no operands, drain known async children and return zero. A subshell cannot wait for its parent's children. |
 
 ### Shell Limits
 
-This is not a fully conforming POSIX shell. Background lists, job control, `trap`, arithmetic expansion, backquotes, dollar-single-quoting, `ENV` startup processing, `~user`, locale-sensitive matching, and other unlisted shell options and builtins are not supported. With a multiline alias on shared stdin, the byte delimiting the original alias word may already be in parser lookahead when a child reads stdin. The shell uses the Linux `statx` and `memfd_create` system calls.
+This is not a fully conforming POSIX shell. Job IDs, job control (`jobs`, `fg`, `bg`, `set -m`), terminal foreground handoff, `trap`, arithmetic expansion, backquotes, dollar-single-quoting, `ENV` startup processing, `~user`, locale-sensitive matching, and other unlisted shell options and builtins are not supported. With a multiline alias on shared stdin, the byte delimiting the original alias word may already be in parser lookahead when a child reads stdin. The shell uses the Linux `statx` and `memfd_create` system calls.
 
 Run the focused and end-to-end tests after building:
 
@@ -57,6 +61,36 @@ Run the focused and end-to-end tests after building:
 zig test src/main.zig --test-filter 'sh:'
 python3 tests/sh_integration.py zig-out/bin/zosixutils
 ```
+
+## Process Utilities
+
+The Linux process utilities include `ps`, `nohup`, and `kill` (also a shell builtin). The bundled [`sh`](#sh) supports asynchronous lists and shell-only `wait`, but not job control. `at` and `batch` submit to a persistent per-account queue serviced by foreground `zosixutils atd`, with local Maildir notifications. See [Job Scheduler](#job-scheduler) for provisioning, supervision, and recovery. These interfaces target Linux and the C/POSIX locale and do not claim blanket POSIX conformance.
+
+- `kill [-s name | -NAME | -number] [--] pid...` defaults to `TERM`. `-s 0` checks whether a process can be signaled without sending a signal. Prefix a leading negative process-group operand with `--`. `kill -l` lists names; `kill -l 143` translates the shell status to `TERM`. `%job` operands are not supported.
+- `nohup [--] utility [arg...]` ignores SIGHUP without backgrounding the utility. Terminal stdin becomes `/dev/null`; terminal stdout appends to `./nohup.out` or `$HOME/nohup.out`. Terminal stderr follows open stdout, or appends to the file if stdout is closed. Existing file modes are left alone; new files use `0600`. Status `126` means the utility could not be invoked; `127` means it was missing or `nohup` setup failed.
+- `ps` defaults to processes with the caller's effective UID and controlling terminal. Explicit selectors are combined by union: `-a`, `-A`/`-e`, `-d`, `-G` (real groups), `-g` (session IDs), `-p`, `-t`, `-U` (real users), and `-u` (effective users). Use `-f`/`-l` for full/long layouts or repeat `-o` for custom columns, for example `ps -A -o pid= -o args=`. `COLUMNS` and `-w` control width; repeat `-w` for unlimited width. Unavailable arguments display as `[name]`, zombies are marked `<defunct>`, and uncommon terminal devices use `major:minor`. `STIME` is epoch seconds; unavailable fields such as `ADDR` and `WCHAN` show `-`. CPU percentage is a lifetime average. Alternate kernel namelists (`-n`), NSS, and GNU/BSD option forms are not supported.
+
+## Job Scheduler
+
+```sh
+zosixutils at -f backup.sh 02:30 tomorrow
+zosixutils at -m -t 203012312359 < report.sh
+zosixutils batch < rebuild.sh
+zosixutils at -l
+zosixutils at -l -q b
+zosixutils at -r JOB_ID
+zosixutils atd
+```
+
+`at` reads standard input unless `-f FILE` is given. It reports the committed job ID and date to stderr; `at -l [ID ...]` prints pending jobs to stdout. Queue `a` is the timed queue. Queue `b` is reserved for `batch` or the explicit form `at -q b -m now`. Times use `TZ` (system zoneinfo or a POSIX TZ string) or the local timezone. `utc` overrides the zone in a timespec. Nonexistent local times in a DST gap are rejected; ambiguous times use the earliest occurrence that is still eligible.
+
+Provision one foreground `zosixutils atd` process under the same UID that submits jobs, using a supervisor to start it and restart it on failure. Do not install it setuid or run one root worker to serve other accounts. The account needs a local `/etc/passwd` entry and a writable, non-symlink home path with safe ownership and modes. It creates a private spool at `~/.local/state/zosixutils/at`, independent of `HOME`. Do not share the spool or give other users access.
+
+The administrator can create the root-owned `/etc/zosixutils` directory and root-owned `at.allow` or `at.deny` files, with no group or other write access. Use one login name per line. `at.allow`, if present, overrides `at.deny`. An empty `at.deny` permits all local accounts; if neither file exists, only root may submit. Unsafe or unreadable policy files are rejected.
+
+Jobs persist while `atd` is stopped. The runner starts one job at a time, prefers due timed jobs, and starts batch jobs when the one-minute load average is below `1.5`. It uses the bundled `sh` subset regardless of `SHELL`, with the saved cwd, exported environment, umask, and file-size limit. Jobs have no controlling terminal and read `/dev/null` on stdin. Background descendants holding the output descriptors keep the current job active until they close them.
+
+Nonempty captured stdout/stderr and `-m` or `batch` notices are delivered to the account's `~/Maildir/new`; no external mail command is needed. Delivery failures keep output in the spool's `finished/` directory for retry without rerunning the job. A delivery already present in `new` or `cur` is recognized; deleting a message before a failed delivery is reconciled can result in another copy of the notice. On restart, in-doubt `running/` claims are moved to `quarantine/`, even if a claimed job may not have started. Inspect these records and confirm the original job is no longer running before manually resubmitting. `at -l` and `at -r` operate only on pending jobs. Incomplete submissions may leave unpublished records in `staging/`; inspect or remove them only when no submission is in progress.
 
 ## Other Applets
 

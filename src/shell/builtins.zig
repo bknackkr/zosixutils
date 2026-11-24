@@ -23,6 +23,8 @@ pub const Kind = enum {
     command,
     alias,
     unalias,
+    kill,
+    wait,
 
     pub fn special(self: Kind) bool {
         return switch (self) {
@@ -39,7 +41,8 @@ pub fn find(name: []const u8) ?Kind {
         .{ "export", Kind.export_vars },     .{ "readonly", Kind.readonly_vars }, .{ "return", Kind.return_fn },
         .{ "set", Kind.set },                .{ "shift", Kind.shift },            .{ "unset", Kind.unset },
         .{ "cd", Kind.cd },                  .{ "read", Kind.read },              .{ "command", Kind.command },
-        .{ "alias", Kind.alias },            .{ "unalias", Kind.unalias },
+        .{ "alias", Kind.alias },            .{ "unalias", Kind.unalias },        .{ "kill", Kind.kill },
+        .{ "wait", Kind.wait },
     };
     inline for (names) |entry| if (std.mem.eql(u8, name, entry[0])) return entry[1];
     return null;
@@ -265,7 +268,15 @@ fn readBuiltin(ctx: anytype, allocator: Allocator, args: []const [:0]const u8) !
     var terminated = false;
     while (true) {
         var byte: [1]u8 = undefined;
-        const n = if (ctx.interactive and process.terminal(0)) try process.interactiveRead(0, &byte) else try process.read(0, &byte);
+        const n = blk: {
+            while (true) break :blk process.interactiveRead(0, &byte) catch |err| switch (err) {
+                error.ChildChanged => {
+                    if (@hasDecl(@TypeOf(ctx.*), "collectChildren")) ctx.collectChildren();
+                    continue;
+                },
+                else => return err,
+            };
+        };
         if (n == 0) break;
         const c = byte[0];
         if (!raw and !escaped and c == '\\') {
@@ -451,6 +462,8 @@ pub fn run(ctx: anytype, allocator: Allocator, kind: Kind, args: []const [:0]con
         .cd => return cdBuiltin(ctx, allocator, args),
         .read => return readBuiltin(ctx, allocator, args),
         .command => return commandBuiltin(ctx, allocator, args),
+        .kill => return .{ .status = @import("../commands/kill.zig").run(allocator, args) },
+        .wait => return .{ .status = try @import("../commands/wait.zig").run(ctx, args) },
         .alias => {
             const io = std.Io.Threaded.global_single_threaded.io();
             var out_buf: [1024]u8 = undefined;
@@ -571,6 +584,9 @@ test "sh: stateful builtin operations" {
         }
         fn lookup(_: *@This(), _: Allocator, _: [:0]const u8, _: bool, _: bool) !Lookup {
             return .missing;
+        }
+        pub fn waitChild(_: *@This(), _: ?process.Pid) !u8 {
+            return 127;
         }
     };
     const a = std.testing.allocator;

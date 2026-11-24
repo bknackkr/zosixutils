@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import pty
 import resource
+import re
 import select
 import signal
 import subprocess
@@ -55,6 +56,15 @@ class ShellTest(unittest.TestCase):
         self.check(self.launch(["-s", "--", "arg"], script), stdout=b"sh:1:arg\n")
         data = b'read line\nfrom builtin\nprintf "%s\n" "$line"\ndd bs=1 count=11 status=none\nfrom child\nprintf "after\n"\n'
         self.check(self.launch([], data), stdout=b"from builtin\nfrom child\nafter\n")
+
+    def test_wait_with_inherited_blocked_sigchld(self):
+        def block_sigchld():
+            signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+
+        result = self.launch(
+            ["-c", '/bin/sleep 0.05 & wait "$!"; printf "%s\\n" "$?"'], preexec_fn=block_sigchld,
+        )
+        self.check(result, stdout=b"0\n")
 
     def test_exec_lookup_and_environment(self):
         self.fixture("tool", b'printf "%s:%s:%s\n" "$0" "$A" "$1"\n', 0o755)
@@ -175,15 +185,140 @@ set -f; printf '%s\\n' *.txt
 
     def test_unsupported_and_incomplete_are_distinct(self):
         for script, diagnostic in [
-            (": &", b"unsupported"), ("echo $((1))", b"unsupported"),
+            ("echo $((1))", b"unsupported"),
             ("echo `:`", b"unsupported"), ("echo $'x'", b"unsupported"),
-            ("echo $!", b"unsupported"), ("if true; then :", b"unexpected end"),
+            ("if true; then :", b"unexpected end"),
         ]:
             result = self.launch(["-c", script])
             self.check(result, status=2, stderr=None)
             self.assertIn(diagnostic, result.stderr)
         self.check(self.launch(["-c", ""]))
         self.check(self.launch([], b""))
+
+    def test_async_wait_and_subshell_isolation(self):
+        script = rb'''printf '<%s:%s>\n' "$!" "${!}"
+/bin/sh -c 'printf "%s" "$$" >pid; exit 7' & p=$!
+wait "$p"; printf 'status=%s\n' "$?"
+read actual <pid; printf 'same=%s\n' "$([ "$p" = "$actual" ] && printf yes)"
+wait "$p"; printf 'consumed=%s\n' "$?"
+false && printf bad >bad || /bin/false & p=$!
+wait "$p"; printf 'list=%s\n' "$?"
+(/bin/false & q=$!; wait "$q"; printf 'inner=%s\n' "$?"; wait "$p"; printf 'foreign=%s\n' "$?")
+if [ "$p" = "$!" ]; then printf 'parent=yes\n'; else printf 'parent=no\n'; fi
+/bin/sleep 0.1 & live=$!; (printf 'empty=<%s>\n' "$!"; wait "$live"; printf 'live-foreign=%s\n' "$?"); wait "$live"
+s=$(printf '<%s>' "$!"); printf 'sub=%s\n' "$s"
+/bin/false & /bin/true & wait; printf 'all=%s\n' "$?"
+/bin/false & early=$!; /bin/sleep 0.1; wait "$early"; printf 'early=%s\n' "$?"
+wait 99999999 "$p"; printf 'last=%s\n' "$?"
+command -v wait; command -v kill
+'''
+        self.check(self.launch(["-c", script]), stdout=(
+            b"<:>\nstatus=7\nsame=yes\nconsumed=127\nlist=1\n"
+            b"inner=1\nforeign=127\nparent=yes\nempty=<>\nlive-foreign=127\nsub=<>\n"
+            b"all=0\nearly=1\nlast=127\nwait\nkill\n"
+        ))
+        self.assertFalse((self.cwd / "bad").exists())
+
+    def test_async_input_status_and_redirections(self):
+        self.fixture("input", b"value\n")
+        script = rb'''read x & p=$!; wait "$p"; printf 'stdin=%s\n' "$?"
+{ read x; printf '%s\n' "$x" >result; } <input & p=$!; wait "$p"
+/bin/sh -c 'kill -TERM "$$"' & p=$!; wait "$p"; printf 'signal=%s\n' "$?"
+/bin/false & a=$!; /bin/true & b=$!; wait "$a" "$b"; printf 'last=%s\n' "$?"
+wait not-a-pid 2>err; printf 'invalid=%s\n' "$?"
+wait 0; printf 'zero=%s\n' "$?"
+/bin/sh -c 'kill -INT "$$"; printf survived >ignored' & p=$!; wait "$p"
+{ /bin/sh -c 'kill -QUIT "$$"; printf nested >nested'; } & p=$!; wait "$p"
+kill -0 99999999 2>kill-err; printf 'kill=%s\n' "$?"
+'''
+        self.check(self.launch(["-c", script]), stdout=b"stdin=1\nsignal=143\nlast=0\ninvalid=1\nzero=127\nkill=1\n")
+        self.assertEqual((self.cwd / "result").read_bytes(), b"value\n")
+        self.assertIn(b"invalid PID", (self.cwd / "err").read_bytes())
+        self.assertEqual((self.cwd / "ignored").read_bytes(), b"survived")
+        self.assertEqual((self.cwd / "nested").read_bytes(), b"nested")
+        self.assertTrue((self.cwd / "kill-err").read_bytes())
+
+    def test_async_pipeline_here_document_and_no_exit_wait(self):
+        script = b"""cat <<EOF | cat >result & p=$!
+hello
+EOF
+wait "$p"; printf 'pipeline=%s\\n' "$?"
+"""
+        self.check(self.launch([], script), stdout=b"pipeline=0\n")
+        self.assertEqual((self.cwd / "result").read_bytes(), b"hello\n")
+        start = time.monotonic()
+        result = self.launch(["-c", '/bin/sleep 30 </dev/null >/dev/null 2>&1 & printf "%s" "$!"'])
+        try:
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertLess(time.monotonic() - start, 0.8)
+        finally:
+            if result.stdout.isdigit():
+                try:
+                    os.kill(int(result.stdout), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+    def test_async_pty_reaping_and_interruptible_wait(self):
+        pid, fd = pty.fork()
+        if pid == 0:
+            os.chdir(self.cwd)
+            os.execve(BINARY, self.shell, self.env)
+        self.addCleanup(os.close, fd)
+
+        def finish():
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+
+        self.addCleanup(finish)
+        pending = b""
+
+        def until(marker):
+            nonlocal pending
+            deadline = time.monotonic() + 5
+            while marker not in pending:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not select.select([fd], [], [], remaining)[0]:
+                    self.fail(f"missing {marker!r} in PTY output {pending!r}")
+                pending += os.read(fd, 4096)
+            before, pending = pending.split(marker, 1)
+            return before
+
+        until(b"$ ")
+        os.write(fd, b"/bin/sleep 0.2 &\n")
+        output = until(b"$ ")
+        match = re.search(rb"\r\n([0-9]+)\r\n", output)
+        self.assertIsNotNone(match, output)
+        child = int(match.group(1))
+        deadline = time.monotonic() + 5
+        while Path(f"/proc/{child}").exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertFalse(Path(f"/proc/{child}").exists(), "idle child was not reaped")
+        os.write(fd, b'wait "$!"; printf "saved=%s\\n" "$?"\n')
+        self.assertIn(b"saved=0", until(b"$ "))
+        os.write(fd, b'/bin/sleep 0.2 & printf "foreground-pid=%s\\n" "$!"; /bin/sleep 1\n')
+        until(b"\r\nforeground-pid=")
+        foreground_child = int(until(b"\r\n"))
+        deadline = time.monotonic() + 0.8
+        while Path(f"/proc/{foreground_child}").exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertFalse(Path(f"/proc/{foreground_child}").exists(), "child not reaped during foreground wait")
+        until(b"$ ")
+        os.write(fd, b"/bin/sleep 30 &\n")
+        until(b"$ ")
+        os.write(fd, b'wait "$!"\n')
+        time.sleep(0.1)
+        os.write(fd, b"\x03")
+        until(b"$ ")
+        os.write(fd, b'printf "interrupted=%s\\n" "$?"; kill -KILL "$!"; wait "$!"; printf "after=%s\\n" "$?"\n')
+        output = until(b"$ ")
+        self.assertIn(b"interrupted=130", output)
+        self.assertIn(b"after=137", output)
 
     def test_nested_quoting_in_expansion(self):
         script = rb"""v='a*b'
